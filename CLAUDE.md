@@ -79,3 +79,5 @@ file that ships in the program (including fonts and scripts) needs an entry in
 ## Git
 
 - Commit only when asked. Commit messages: a short imperative subject, then a body explaining what and why.
+- Always ask before pushing, every time, even right after a commit the user asked for. Never push the local
+  `history` branch (the history before the repository was published).
