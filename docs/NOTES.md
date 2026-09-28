@@ -50,8 +50,13 @@ Decisions, known differences from Gramps, and open items. Keep this file current
     processor generates the Native Image configuration).
   - `image` (JPEG decoding and encoding for thumbnails) has none; see "Images" below.
 - **Build:** Gradle with the Groovy DSL. Formatting with Spotless and Palantir Java Format;
-  `spotlessCheck` is meant for CI. Tests run on the JVM (`test`) and compiled into native executables
+  `spotlessCheck` runs in CI. Tests run on the JVM (`test`) and compiled into native executables
   (`nativeTest`, about 3 minutes), which catches missing Native Image configuration.
+- **CI and releases:** GitHub Actions. `build.yml` runs `spotlessCheck test` on every push and pull request,
+  then (not for pull requests) `nativeTest`, the native binary and its `--check`. `release.yml` runs for a tag
+  `v<version>` (the version lives in `gradle.properties`; the tag must match): Linux x64 and arm64 binaries built
+  with `-Prelease` (`-march=compatibility`, since Native Image otherwise targets newer CPUs) on Ubuntu 22.04 for
+  an older glibc, packaged with LICENSE and NOTICE.txt into a draft release that is published by hand.
 - **License:** AGPL-3.0-or-later. This allows porting logic from Gramps (GPL-2.0-or-later) with attribution.
 - **Languages:** no language-specific code. ICU provides month names and date order for any locale; texts
   such as "about" or "between ... and ..." come from `messages_<lang>.properties`. Adding a language means

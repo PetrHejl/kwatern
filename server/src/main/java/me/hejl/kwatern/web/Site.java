@@ -5,13 +5,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import me.hejl.gramps.privacy.PublicDatabase;
+import me.hejl.kwatern.Version;
 import me.hejl.kwatern.view.SearchIndex;
 
 /** The published data and a {@link Ui} per page language. Thread-safe. */
 public final class Site {
 
     /** The program and its version, shown in the page footer and by {@code --version}. */
-    public static final String PROGRAM = "Kwatern 0.1";
+    public static final String PROGRAM = "Kwatern " + Version.VERSION;
 
     /**
      * How the site looks.

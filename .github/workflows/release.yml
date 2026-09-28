@@ -1,0 +1,76 @@
+# Builds the native binaries for a version tag (v<version from gradle.properties>) and puts them in a draft
+# GitHub release, which is published by hand after checking it.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # The oldest runners available, because the binary needs at least the glibc it was built with.
+          - platform: linux-x64
+            runner: ubuntu-22.04
+          - platform: linux-arm64
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the tag matches the version
+        run: |
+          version=$(sed -n 's/^version=//p' gradle.properties)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in gradle.properties"
+            exit 1
+          fi
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+      - run: ./gradlew :server:nativeCompile :downloadTestData -Prelease
+      - name: Run the binary
+        run: |
+          bin=server/build/native/nativeCompile/kwatern
+          $bin --version
+          $bin build/test-data/example.gramps --check
+          $bin --licenses > /dev/null
+      - name: Package
+        run: |
+          name=kwatern-${GITHUB_REF_NAME#v}-${{ matrix.platform }}
+          mkdir "$name"
+          cp server/build/native/nativeCompile/kwatern LICENSE README.md \
+            server/src/main/resources/me/hejl/kwatern/licenses/NOTICE.txt "$name/"
+          tar czf "$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.platform }}
+          path: kwatern-*.tar.gz
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+      - run: sha256sum kwatern-*.tar.gz > SHA256SUMS
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes \
+            --title "Kwatern ${GITHUB_REF_NAME#v}" kwatern-*.tar.gz SHA256SUMS

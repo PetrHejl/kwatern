@@ -46,7 +46,7 @@ all modules (JUnit, the example tree, native tests) lives in the root `build.gra
 - Lines at most 120 characters. Indent with 4 spaces.
 - Never use fully qualified class names in code; import the class. Only use a qualified name when
   two imported classes clash.
-- Formatting is enforced by Spotless with Palantir Java Format (`./gradlew spotlessApply`); CI will run
+- Formatting is enforced by Spotless with Palantir Java Format (`./gradlew spotlessApply`); CI runs
   `spotlessCheck`. It also orders imports and forbids wildcard imports. It does not split long string
   literals; wrap those by hand.
 - Model values: optional scalars are `null` when absent, lists are never `null` (copy with `List.copyOf`).
@@ -81,3 +81,5 @@ file that ships in the program (including fonts and scripts) needs an entry in
 - Commit only when asked. Commit messages: a short imperative subject, then a body explaining what and why.
 - Always ask before pushing, every time, even right after a commit the user asked for. Never push the local
   `history` branch (the history before the repository was published).
+- Releases: set `version` in `gradle.properties`, commit, then tag `v<version>` and push the tag (ask first). The
+  release workflow builds the binaries into a draft GitHub release; the user publishes it.

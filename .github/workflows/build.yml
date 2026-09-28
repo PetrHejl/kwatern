@@ -1,0 +1,65 @@
+# Checks every change: formatting and the JVM tests, then the native tests and the native binary.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v6
+      # The image tests compare the decoders with djpeg and ImageMagick, and skip that when they are missing.
+      - name: Install djpeg and ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libjpeg-turbo-progs imagemagick
+      - run: ./gradlew spotlessCheck test
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: '*/build/reports/tests/'
+          retention-days: 7
+
+  # The JVM tests do not catch missing Native Image configuration (reflection, resources); these do. Slow, so not for
+  # pull requests; run the workflow by hand to check one.
+  native:
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: graalvm-community
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew nativeTest :server:nativeCompile
+      - name: Run the binary
+        run: |
+          bin=server/build/native/nativeCompile/kwatern
+          $bin --version
+          $bin build/test-data/example.gramps --check
+          $bin --licenses > /dev/null
+      - uses: actions/upload-artifact@v7
+        with:
+          name: kwatern-linux-x64
+          path: server/build/native/nativeCompile/kwatern
+          retention-days: 7
