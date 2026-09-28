@@ -1,0 +1,5 @@
+// Image codecs in plain Java, with no dependencies and no use of java.awt, so they work in a single native
+// executable. Tests compare the results with ImageIO, but only on the JVM.
+dependencies {
+    testImplementation project(':gramps-xml')
+}

@@ -1,0 +1,805 @@
+/* Design: see docs/NOTES.md, "Web design". Colours are variables so a theme only overrides :root. */
+
+/* Fonts bundled from Fontsource (SIL Open Font License, see fonts/OFL-*.txt): Latin and Latin Extended;
+   other scripts use the system fonts. */
+@font-face {
+    font-family: "Manrope";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url("/static/fonts/manrope-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Manrope";
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url("/static/fonts/manrope-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("/static/fonts/source-sans-3-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Source Sans 3";
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("/static/fonts/source-sans-3-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: "Source Sans 3";
+    font-style: italic;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("/static/fonts/source-sans-3-latin-ext-wght-italic.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: "Source Sans 3";
+    font-style: italic;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("/static/fonts/source-sans-3-latin-wght-italic.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------- tokens
+
+   Every size, space, radius and colour below comes from these variables, chosen by role; see "Visual tokens"
+   in docs/NOTES.md. Only layout dimensions of particular components (page width, sidebar, avatar and image
+   sizes) are written where they are used. */
+
+:root {
+    /* Text sizes, in rem so that they follow the size a visitor sets in the browser (16 px unless changed). */
+    --text-badge: 0.75rem; /* 12 px: initials in small circles */
+    --text-xs: 0.875rem;   /* 14 px: uppercase labels, chart axes, number badges */
+    --text-sm: 1rem;       /* 16 px: secondary text, captions, chips, boxes, chart labels */
+    --text-base: 1.125rem; /* 18 px: body text, navigation, tabs */
+    --text-md: 1.25rem;    /* 20 px: summary lines, brand, small headings */
+    --text-lg: 1.375rem;   /* 22 px: card headings */
+    --text-xl: 1.75rem;    /* 28 px: stat numbers, large initials, phone headings */
+    --text-xxl: 2.75rem;   /* 44 px: page heading */
+
+    /* Spaces on a 4 px grid, for gaps, padding and margins; 2 px only between tightly listed rows. */
+    --space-hair: 2px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+
+    /* Corners: small parts, items within cards, cards; pills and circles are fully round. */
+    --radius-sm: 4px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --radius-full: 999px;
+
+    /* On photos and map tiles, which look the same in both themes, so these colours do too. */
+    --overlay-line: #ffffff;
+    --overlay-mark: #2c333b;
+    --overlay-shadow: rgba(0, 0, 0, 0.5);
+    --map-accent: #1d5c8c;
+    --map-secondary: #8a949e;
+    --map-text: #5a6470;
+}
+
+/* Colours of the light theme; the dark theme overrides them below. */
+:root {
+    --bg: #f4f5f2;
+    --surface: #ffffff;
+    --fg: #1b1f24;
+    --fg-soft: #3d4550;
+    --muted: #5a6470;
+    --line: #e1e4e8;
+    --line-soft: #eceef1;
+    --connector: #b6bdc6;
+    --accent: #1d5c8c;
+    --accent-hover: #123d5e;
+    --accent-soft: #e3edf5;
+    --accent-ink: #174b73;
+    --self-bg: #2c333b;
+    --self-fg: #ffffff;
+    --self-muted: #c9d0d8;
+    --adopted: #8a4312;
+    --male-bg: #dbe7f2;
+    --male-fg: #174b73;
+    --female-bg: #f6e1d5;
+    --female-fg: #8a3f1a;
+    --neutral-bg: #eceef1;
+    --neutral-fg: #5a6470;
+    --danger-bg: #fbeceb;
+    --danger-fg: #a3312a;
+    --display: Manrope, "Segoe UI", system-ui, sans-serif;
+    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Dark colours: when the system asks for them (unless --theme=light), or always with --theme=dark. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #16191d;
+        --surface: #1f2328;
+        --fg: #e8eaed;
+        --fg-soft: #c3c8cf;
+        --muted: #9aa3ad;
+        --line: #33393f;
+        --line-soft: #2a2f35;
+        --connector: #4d555e;
+        --accent: #7fb3e0;
+        --accent-hover: #a9cdee;
+        --accent-soft: #23374a;
+        --accent-ink: #a9cdee;
+        --self-bg: #e8eaed;
+        --self-fg: #16191d;
+        --self-muted: #3d4550;
+        --adopted: #e7a36f;
+        --male-bg: #23374a;
+        --male-fg: #a9cdee;
+        --female-bg: #4a2e22;
+        --female-fg: #f1b99a;
+        --neutral-bg: #2a2f35;
+        --neutral-fg: #9aa3ad;
+        --danger-bg: #3a2220;
+        --danger-fg: #f2a39c;
+    }
+}
+
+:root[data-theme="dark"] {
+    --bg: #16191d;
+    --surface: #1f2328;
+    --fg: #e8eaed;
+    --fg-soft: #c3c8cf;
+    --muted: #9aa3ad;
+    --line: #33393f;
+    --line-soft: #2a2f35;
+    --connector: #4d555e;
+    --accent: #7fb3e0;
+    --accent-hover: #a9cdee;
+    --accent-soft: #23374a;
+    --accent-ink: #a9cdee;
+    --self-bg: #e8eaed;
+    --self-fg: #16191d;
+    --self-muted: #3d4550;
+    --adopted: #e7a36f;
+    --male-bg: #23374a;
+    --male-fg: #a9cdee;
+    --female-bg: #4a2e22;
+    --female-fg: #f1b99a;
+    --neutral-bg: #2a2f35;
+    --neutral-fg: #9aa3ad;
+    --danger-bg: #3a2220;
+    --danger-fg: #f2a39c;
+}
+
+/* Lets the browser draw its own controls and scrollbars to match. */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+/* ---------------------------------------------------------------- base and shared parts */
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: var(--bg); color: var(--fg); font: var(--text-base)/1.5 var(--body); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+h1, h2 { font-family: var(--display); }
+
+.muted, .unknown { color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Years and roles break between their parts, never inside "1827–1916". */
+.nowrap { white-space: nowrap; }
+
+/* Small uppercase labels above groups: children in the family diagram, chart columns, sides of a family. */
+.d-children-label, .tree-columns span, .ancestor-list .side-label {
+    font-size: var(--text-xs);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* A number in a circle, matching a list to a photo or a map. */
+.badge-number {
+    flex-shrink: 0;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--surface);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.badge-number.unmapped { background: none; color: var(--muted); border: 1px dashed var(--connector); }
+
+/* "Show N more" under lists and photos. */
+.more-rows summary, .more-tiles summary {
+    cursor: pointer;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-2);
+    color: var(--accent);
+}
+
+/* A remark under a card's content; right under a heading, it belongs to it. */
+.card-note { margin: var(--space-4) 0 0; font-size: var(--text-sm); color: var(--muted); }
+.card h2:has(+ .card-note) { margin-bottom: var(--space-1); }
+.card h2 + .card-note { margin: 0 0 var(--space-3); }
+
+/* ---------------------------------------------------------------- header and page frame */
+
+header.site {
+    display: flex;
+    gap: var(--space-5);
+    align-items: center;
+    min-height: 64px;
+    padding: 0 max(var(--space-4), calc((100% - 1184px) / 2));
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+header.site .brand { font-family: var(--display); font-size: var(--text-md); font-weight: 700; color: var(--fg); }
+header.site nav { display: flex; gap: var(--space-5); font-size: var(--text-base); }
+header.site nav a { white-space: nowrap; }
+
+footer.site {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-5) max(var(--space-4), calc((100% - 1184px) / 2));
+    border-top: 1px solid var(--line);
+    font-size: var(--text-sm);
+    color: var(--muted);
+}
+
+.hero { background: var(--surface); border-bottom: 1px solid var(--line); }
+.hero-inner {
+    max-width: 1184px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-4);
+    display: flex;
+    gap: var(--space-5);
+    align-items: center;
+}
+.hero-text { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.hero h1 { margin: 0; font-size: var(--text-xxl); font-weight: 500; line-height: 1.15; letter-spacing: -0.01em; }
+.hero h1 b { font-weight: 800; }
+.hero h1.living { font-style: italic; color: var(--fg-soft); }
+.hero .summary { margin: 0; font-size: var(--text-md); color: var(--fg-soft); }
+.hero .details { margin: 0; font-size: var(--text-sm); color: var(--muted); }
+
+.columns, .page { max-width: 1184px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+.columns { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: var(--space-6); align-items: start; }
+.columns > main, .columns > aside, .page { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-5); }
+.card h2 { margin: 0 0 var(--space-4); font-size: var(--text-lg); font-weight: 700; }
+
+/* ---------------------------------------------------------------- avatars and person links */
+
+/* Sizes by role: 32 px in rows, 28 px in family boxes and charts, 112 px (80 px on phones) in the heading. */
+.avatar {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-badge);
+    font-weight: 700;
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
+}
+.avatar.living { background: none; border: 1px dashed var(--connector); }
+.gender-colours .avatar.male { background: var(--male-bg); color: var(--male-fg); }
+.gender-colours .avatar.female { background: var(--female-bg); color: var(--female-fg); }
+.hero-avatar { width: 112px; height: 112px; font-size: var(--text-xl); }
+.hero-avatar.living { border-width: 2px; }
+.avatar.portrait { object-fit: cover; background: var(--neutral-bg); }
+
+.rows-list { display: flex; flex-direction: column; gap: var(--space-hair); }
+.rows-list.columns-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-hair) var(--space-5); }
+a.row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 48px;
+    padding: var(--space-hair) var(--space-2);
+    border-radius: var(--radius);
+    color: var(--fg);
+}
+a.row:hover { background: var(--bg); text-decoration: none; }
+.row-text { display: flex; flex-direction: column; flex-grow: 1; min-width: 0; }
+.row-name { font-weight: 600; color: var(--accent); }
+.row-sub { font-size: var(--text-sm); color: var(--muted); }
+a.row.living .row-name { font-weight: 400; font-style: italic; color: var(--muted); }
+.chevron { color: var(--muted); }
+
+a.living { color: var(--muted); font-style: italic; }
+
+/* ---------------------------------------------------------------- family diagram */
+
+.diagram { display: flex; flex-direction: column; }
+.d-parents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.d-line { width: 2px; height: var(--space-4); margin: 0 auto; background: var(--connector); }
+.box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: var(--text-sm);
+    color: var(--fg);
+    min-width: 0;
+}
+a.box:hover { border-color: var(--accent); text-decoration: none; }
+.box .avatar { width: 28px; height: 28px; }
+.box-text { display: flex; flex-direction: column; min-width: 0; }
+.box-name { font-weight: 600; color: var(--accent); overflow-wrap: anywhere; }
+.box-sub { color: var(--muted); }
+.box.living, .box.missing { border-style: dashed; border-color: var(--connector); }
+.box.living .box-name, .box.missing .box-name { font-weight: 400; font-style: italic; color: var(--muted); }
+.box.self { background: var(--self-bg); border-color: var(--self-bg); color: var(--self-fg); padding: var(--space-3); }
+.box.self .box-name { color: var(--self-fg); font-weight: 700; }
+.box.self .box-sub { color: var(--self-muted); }
+.d-family {
+    margin-left: var(--space-4);
+    border-left: 2px solid var(--connector);
+    padding: var(--space-3) 0 var(--space-2) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.d-label { font-size: var(--text-sm); color: var(--muted); }
+.d-children-label { margin-top: var(--space-1); }
+.d-children { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.more { font-size: var(--text-sm); }
+
+/* ---------------------------------------------------------------- timeline and sources */
+
+.timeline { display: grid; grid-template-columns: 64px minmax(0, 1fr); row-gap: var(--space-4); column-gap: var(--space-4); }
+.t-year { font-family: var(--display); font-weight: 600; }
+.t-body { display: flex; flex-direction: column; gap: var(--space-hair); min-width: 0; }
+.t-type { font-weight: 600; }
+.t-when { color: var(--fg-soft); }
+.t-desc { color: var(--muted); }
+details.sources { margin-top: var(--space-2); font-size: var(--text-sm); }
+details.sources summary {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-full);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-weight: 600;
+    list-style: none;
+}
+details.sources summary::-webkit-details-marker { display: none; }
+dl.citation {
+    margin: var(--space-2) 0 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-1) var(--space-4);
+}
+dl.citation dt { color: var(--muted); }
+dl.citation dd { margin: 0; }
+ul.source-list { margin: 0; padding: 0; list-style: none; line-height: 2; }
+
+/* Events in the lives of the family, in grey between the person's own. */
+.t-year.family { color: var(--muted); font-weight: 500; }
+.t-body.family {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 var(--space-2);
+    color: var(--muted);
+    font-size: var(--text-sm);
+}
+.t-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--connector); flex-shrink: 0; transform: translateY(-2px); }
+
+/* ---------------------------------------------------------------- other pages */
+
+dl.rows { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
+dl.rows dt { color: var(--muted); }
+dl.rows dd { margin: 0; }
+.note { white-space: pre-line; margin: 0 0 var(--space-3); }
+.note.preformatted { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: var(--text-sm); }
+
+dl.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0 0 var(--space-4); }
+dl.stats dt { color: var(--muted); font-size: var(--text-sm); }
+dl.stats dd { margin: 0; font-family: var(--display); font-size: var(--text-xl); font-weight: 700; }
+
+nav.letters { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-md); font-family: var(--display); font-weight: 600; }
+ul.surnames { list-style: none; padding: 0; margin: 0; columns: 14rem; }
+ul.surnames li { padding: var(--space-1) 0; break-inside: avoid; }
+
+/* ---------------------------------------------------------------- search, places, sources */
+
+form.search { margin-left: auto; }
+form.search input, form.search-big input {
+    height: 40px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+}
+form.search input { width: 280px; font-size: var(--text-sm); }
+form.search-big { display: flex; gap: var(--space-2); max-width: 560px; }
+form.search-big input { flex-grow: 1; height: 44px; }
+form.search-big button, .signin-card button {
+    min-height: 44px;
+    padding: 0 var(--space-5);
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--surface);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+nav.breadcrumb { font-size: var(--text-sm); color: var(--muted); }
+.citations { display: flex; flex-direction: column; gap: var(--space-4); }
+.citation-entry { padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-soft); }
+.citation-entry:last-child { border-bottom: 0; padding-bottom: 0; }
+.citation-entry ul { margin: var(--space-1) 0 0; padding-left: var(--space-5); }
+
+ul.place-tree { list-style: none; margin: 0; padding: 0; }
+ul.place-tree ul.place-tree { padding-left: var(--space-5); border-left: 1px solid var(--line-soft); margin-left: var(--space-2); }
+ul.place-tree li { padding: var(--space-1) 0; }
+ul.place-tree summary { cursor: pointer; padding: var(--space-hair) 0; }
+ul.place-tree summary::marker { color: var(--muted); }
+
+/* Places that contain others. */
+.areas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-hair) var(--space-5); }
+a.area { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2); border-radius: var(--radius); color: var(--fg); }
+a.area:hover { background: var(--bg); text-decoration: none; }
+.area-head { display: flex; justify-content: space-between; gap: var(--space-3); }
+.area-head .row-sub { white-space: nowrap; }
+/* A <progress> element rather than an inline width, which the Content Security Policy would block. */
+progress.bar { appearance: none; display: block; width: 100%; height: 4px; border: 0; border-radius: var(--radius-full); background: var(--line-soft); }
+progress.bar::-webkit-progress-bar { background: var(--line-soft); border-radius: var(--radius-full); }
+progress.bar::-webkit-progress-value { background: var(--connector); border-radius: var(--radius-full); }
+progress.bar::-moz-progress-bar { background: var(--connector); border-radius: var(--radius-full); }
+ul.surname-counts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-1) var(--space-4); }
+ul.surname-counts li { display: flex; justify-content: space-between; gap: var(--space-2); }
+.more-rows .timeline { margin-top: var(--space-3); }
+
+/* ---------------------------------------------------------------- photos and media */
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--space-5) var(--space-4); }
+a.tile { display: flex; flex-direction: column; gap: var(--space-1); color: var(--fg); min-width: 0; }
+a.tile:hover { text-decoration: none; }
+a.tile:hover .tile-title { color: var(--accent); text-decoration: underline; }
+/* Cropped to fill the tile, keeping the upper part, where faces usually are. */
+.tile-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 170px;
+    margin-bottom: var(--space-1);
+    object-fit: cover;
+    object-position: 50% 20%;
+    border-radius: var(--radius);
+    background: var(--neutral-bg);
+    color: var(--muted);
+    font-size: var(--text-sm);
+}
+/* At most two lines; the whole title is in the tooltip and on the media page. */
+.tile-title {
+    font-size: var(--text-sm);
+    line-height: 1.35;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+.tile-caption { font-size: var(--text-sm); color: var(--muted); }
+.more-tiles { margin-top: var(--space-4); }
+.more-tiles .tiles { margin-top: var(--space-2); }
+
+/* A single row of smaller photos above the timeline, so the timeline starts close to the top. */
+.photos-compact h2 { margin-bottom: var(--space-3); }
+.photos-compact .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
+.photos-compact .tile-image { height: 120px; }
+.photos-compact .tile-title { -webkit-line-clamp: 1; line-clamp: 1; }
+.photos-compact .tile-caption { display: none; }
+.photos-compact .more-tiles { margin-top: var(--space-2); }
+
+.media-title { overflow-wrap: anywhere; font-weight: 700; }
+.photo-card h2 { margin-top: var(--space-5); }
+figure.photo { position: relative; margin: 0; }
+figure.photo img { display: block; width: 100%; height: auto; border-radius: var(--radius); background: var(--neutral-bg); }
+/* The regions are drawn in the image's own pixels, so they scale with it; SVG attributes place them, as the
+   Content Security Policy forbids inline styles. They sit on the photo, so their colours do not change with
+   the theme. */
+svg.regions { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.region rect {
+    fill: none;
+    stroke: var(--overlay-line);
+    stroke-width: 2px;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 1px var(--overlay-shadow));
+}
+.region circle { fill: var(--overlay-mark); stroke: var(--overlay-line); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.region text { fill: var(--overlay-line); font-family: var(--display); font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+.region:hover rect { stroke: var(--accent-soft); stroke-width: 4px; }
+.photo-foot { display: flex; justify-content: space-between; gap: var(--space-4); margin: var(--space-3) 0 0; font-size: var(--text-sm); }
+/* Highlights the region of the name pointed at, for up to 30 people in a photo. */
+.photo-card:has(.m1:hover) .r1 rect,
+.photo-card:has(.m2:hover) .r2 rect,
+.photo-card:has(.m3:hover) .r3 rect,
+.photo-card:has(.m4:hover) .r4 rect,
+.photo-card:has(.m5:hover) .r5 rect,
+.photo-card:has(.m6:hover) .r6 rect,
+.photo-card:has(.m7:hover) .r7 rect,
+.photo-card:has(.m8:hover) .r8 rect,
+.photo-card:has(.m9:hover) .r9 rect,
+.photo-card:has(.m10:hover) .r10 rect,
+.photo-card:has(.m11:hover) .r11 rect,
+.photo-card:has(.m12:hover) .r12 rect,
+.photo-card:has(.m13:hover) .r13 rect,
+.photo-card:has(.m14:hover) .r14 rect,
+.photo-card:has(.m15:hover) .r15 rect,
+.photo-card:has(.m16:hover) .r16 rect,
+.photo-card:has(.m17:hover) .r17 rect,
+.photo-card:has(.m18:hover) .r18 rect,
+.photo-card:has(.m19:hover) .r19 rect,
+.photo-card:has(.m20:hover) .r20 rect,
+.photo-card:has(.m21:hover) .r21 rect,
+.photo-card:has(.m22:hover) .r22 rect,
+.photo-card:has(.m23:hover) .r23 rect,
+.photo-card:has(.m24:hover) .r24 rect,
+.photo-card:has(.m25:hover) .r25 rect,
+.photo-card:has(.m26:hover) .r26 rect,
+.photo-card:has(.m27:hover) .r27 rect,
+.photo-card:has(.m28:hover) .r28 rect,
+.photo-card:has(.m29:hover) .r29 rect,
+.photo-card:has(.m30:hover) .r30 rect { stroke: var(--accent-soft); stroke-width: 4px; }
+
+.citation-entry.with-media { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--space-5); }
+.citation-media { display: flex; flex-direction: column; gap: var(--space-2); }
+.citation-media .tile-image { height: 190px; }
+
+/* ---------------------------------------------------------------- person tabs and charts */
+
+.hero:has(.tabs) .hero-inner { padding-bottom: var(--space-2); }
+nav.tabs { max-width: 1184px; margin: 0 auto; padding: 0 var(--space-4); display: flex; gap: var(--space-1); overflow-x: auto; }
+nav.tabs a { padding: var(--space-3); border-bottom: 3px solid transparent; white-space: nowrap; font-size: var(--text-base); }
+nav.tabs a.active { border-bottom-color: var(--accent); color: var(--fg); font-weight: 600; }
+nav.tabs a:hover { text-decoration: none; border-bottom-color: var(--line); }
+nav.tabs a.active:hover { border-bottom-color: var(--accent); }
+
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2) var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.chart-head h2 { margin: 0; }
+.chart-options { display: flex; gap: var(--space-3); align-items: baseline; font-size: var(--text-sm); }
+.chart-options .separator { color: var(--connector); }
+
+.tree-scroll { overflow-x: auto; }
+/* Column headings over the boxes: widths and gaps as in Charts (box 240 px, column 284 px; compact 204, 222). */
+.tree-columns { display: flex; gap: 44px; margin-bottom: var(--space-3); }
+.tree-columns span { flex: 0 0 240px; }
+.tree-columns.compact { gap: 18px; }
+.tree-columns.compact span { flex-basis: 204px; }
+svg.tree { display: block; overflow: visible; }
+svg.tree line { stroke: var(--connector); stroke-width: 2; }
+.tree-box rect { fill: var(--surface); stroke: var(--line); }
+.tree-box .name { font-size: var(--text-sm); font-weight: 600; fill: var(--accent); }
+.tree-box .years { font-size: var(--text-sm); fill: var(--muted); }
+.tree-box circle.initials { fill: var(--neutral-bg); }
+.tree-box text.initials { font-size: var(--text-badge); font-weight: 700; fill: var(--neutral-fg); text-anchor: middle; }
+.gender-colours .tree-box.male circle.initials { fill: var(--male-bg); }
+.gender-colours .tree-box.male text.initials { fill: var(--male-fg); }
+.gender-colours .tree-box.female circle.initials { fill: var(--female-bg); }
+.gender-colours .tree-box.female text.initials { fill: var(--female-fg); }
+.tree-box.root rect { fill: var(--self-bg); stroke: var(--self-bg); }
+.tree-box.root .name { fill: var(--self-fg); }
+.tree-box.root .years { fill: var(--self-muted); }
+.tree-box.living rect, .tree-box.unknown rect { stroke: var(--connector); stroke-dasharray: 4 3; }
+.tree-box.unknown rect { fill: none; }
+.tree-box.living .name, .tree-box.unknown text { font-style: italic; font-weight: 400; fill: var(--muted); font-size: var(--text-sm); }
+a:hover .tree-box rect { stroke: var(--accent); }
+a:hover .tree-box .name { text-decoration: underline; }
+.earlier circle { fill: var(--accent-soft); }
+.earlier text { fill: var(--accent-ink); font-size: var(--text-base); font-weight: 700; text-anchor: middle; }
+
+svg.fan { display: block; width: 100%; height: auto; max-width: 1100px; margin: 0 auto; }
+.fan-segment path { fill: var(--neutral-bg); stroke: var(--surface); stroke-width: 2; }
+.gender-colours .fan-segment.male path { fill: var(--male-bg); }
+.gender-colours .fan-segment.female path { fill: var(--female-bg); }
+.fan-segment.root path, .gender-colours .fan-segment.root path { fill: var(--self-bg); }
+.fan-segment.unknown path { fill: var(--bg); stroke: var(--connector); stroke-dasharray: 4 3; }
+.fan-segment text { text-anchor: middle; }
+.fan-segment .name { font-weight: 600; fill: var(--fg); }
+.gender-colours .fan-segment.male .name { fill: var(--male-fg); }
+.gender-colours .fan-segment.female .name { fill: var(--female-fg); }
+.fan-segment .years { fill: var(--fg-soft); font-weight: 400; }
+.fan-segment.root .name, .gender-colours .fan-segment.root .name { font-family: var(--display); fill: var(--self-fg); }
+.fan-segment.root .years { fill: var(--self-muted); }
+.fan-segment.living .name, .fan-segment.unknown text { font-style: italic; font-weight: 400; fill: var(--muted); }
+a:hover .fan-segment path { stroke: var(--accent); }
+
+/* The tree chart needs a wide screen; small ones get the same people as a list. */
+.ancestor-list { display: none; }
+.ancestor-list h3 { margin: var(--space-5) 0 var(--space-2); font-family: var(--display); font-size: var(--text-md); }
+.ancestor-list h3:first-child { margin-top: 0; }
+.ancestor-list .side-label { margin: var(--space-3) 0 var(--space-1); }
+.ancestor-list .unknown-count { margin: var(--space-2); font-style: italic; }
+
+ul.descendants, ul.descendants ul { list-style: none; margin: 0; padding: 0; }
+ul.descendants ul { margin-left: var(--space-4); padding-left: var(--space-5); border-left: 2px solid var(--line); }
+.d-root { display: inline-flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); border-radius: var(--radius); background: var(--self-bg); }
+.d-root .row-name { color: var(--self-fg); font-weight: 700; }
+.d-root .row-sub { color: var(--self-muted); }
+a.d-person { display: inline-flex; align-items: center; gap: var(--space-3); min-height: 44px; color: var(--fg); }
+a.d-person:hover { text-decoration: none; }
+a.d-person:hover .row-name { text-decoration: underline; }
+a.d-person.living .row-name, ul.descendants a.living { font-style: italic; color: var(--muted); font-weight: 400; }
+.d-row { display: flex; align-items: center; gap: var(--space-1) var(--space-3); flex-wrap: wrap; }
+.d-more { font-size: var(--text-sm); }
+li.d-marriage { padding-top: var(--space-2); font-size: var(--text-sm); color: var(--muted); }
+li.d-marriage > ul { font-size: var(--text-base); color: var(--fg); margin-top: var(--space-1); }
+.d-symbol { color: var(--muted); }
+
+svg.lifespans { display: block; width: 100%; height: auto; }
+.lifespans .band { fill: var(--accent-soft); opacity: 0.5; }
+.lifespans .grid { stroke: var(--line-soft); }
+.lifespans .tick { font-size: var(--text-xs); fill: var(--muted); text-anchor: middle; }
+.lifespans .group { font-size: var(--text-xs); fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.life .name { font-size: var(--text-base); fill: var(--accent); }
+.life .years { font-size: var(--text-sm); fill: var(--muted); }
+.life rect { fill: var(--neutral-bg); stroke: var(--neutral-fg); stroke-width: 1; }
+.gender-colours .life.male rect { fill: var(--male-bg); stroke: var(--male-fg); }
+.gender-colours .life.female rect { fill: var(--female-bg); stroke: var(--female-fg); }
+.life.self rect, .gender-colours .life.self rect { fill: var(--self-bg); stroke: var(--self-bg); }
+.life.self .name { font-weight: 700; }
+.life.open rect { stroke-dasharray: 3 3; fill-opacity: 0.5; }
+a:hover .life .name { text-decoration: underline; }
+
+/* ---------------------------------------------------------------- maps */
+
+.map { width: 100%; border-radius: var(--radius); background: var(--neutral-bg); z-index: 0; }
+.map.small { height: 280px; }
+.map.large { height: 520px; }
+.map.full { height: 620px; margin-top: var(--space-3); }
+.card.map-card { padding: var(--space-4); }
+.map-foot { margin: var(--space-3) var(--space-1) 0; font-size: var(--text-sm); }
+.map-filters { flex-wrap: wrap; margin: 0 var(--space-1); }
+.map-card .card-note { margin: var(--space-3) var(--space-1) 0; }
+/* Markers sit on the map tiles, which are light in both themes: a number badge with a white ring. */
+.map-pin-holder { background: none; border: 0; }
+.map-pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-full);
+    background: var(--map-accent);
+    border: 2px solid var(--overlay-line);
+    box-shadow: 0 1px 3px var(--overlay-shadow);
+    color: var(--overlay-line);
+    font: 700 var(--text-xs)/1 var(--body);
+    white-space: nowrap;
+}
+.map-pin:empty { min-width: 20px; width: 20px; height: 20px; border-width: 3px; }
+.map-pin.secondary { min-width: 16px; width: 16px; height: 16px; background: var(--map-secondary); }
+.map-dot { fill: var(--map-accent); fill-opacity: 0.5; stroke: var(--overlay-line); }
+.leaflet-popup-content { font: var(--text-sm)/1.4 var(--body); }
+.leaflet-popup-content .map-note { color: var(--map-text); }
+ol.stops { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+ol.stops li { display: flex; gap: var(--space-3); align-items: flex-start; }
+.stop-text { display: flex; flex-direction: column; min-width: 0; }
+
+/* ---------------------------------------------------------------- signing in */
+
+.account { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+/* A form's button that looks like a link, for signing out, which must be a POST. */
+button.link { min-height: 44px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; }
+button.link:hover { color: var(--accent-hover); text-decoration: underline; }
+/* So that nobody shares the members' view thinking it is public. */
+.members-bar {
+    padding: var(--space-1) max(var(--space-4), calc((100% - 1184px) / 2));
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+.signin { display: flex; justify-content: center; padding: var(--space-8) var(--space-4); }
+.signin-card { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--space-4); }
+.signin-head { display: flex; flex-direction: column; gap: var(--space-1); }
+.signin-head h1 { margin: 0; font-size: var(--text-lg); font-weight: 700; }
+.signin-head p { margin: 0; font-size: var(--text-sm); }
+.signin-card .card-note { margin: 0; }
+.field { display: flex; flex-direction: column; gap: var(--space-1); }
+.field label { font-size: var(--text-sm); font-weight: 600; color: var(--fg-soft); }
+.field input {
+    height: 44px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-full);
+    background: var(--bg);
+    color: var(--fg);
+    font: inherit;
+}
+.check { display: flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); }
+.check input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.form-error {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    background: var(--danger-bg);
+    color: var(--danger-fg);
+    font-size: var(--text-sm);
+    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- small screens (one breakpoint) */
+
+@media (max-width: 900px) {
+    header.site { flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding-top: var(--space-2); padding-bottom: var(--space-2); }
+    /* Navigation takes the secondary size on phones so that all of it fits. */
+    header.site nav { flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: var(--text-sm); }
+    form.search { margin-left: 0; width: 100%; }
+    form.search input { width: 100%; height: 44px; }
+    .signin { padding: var(--space-6) var(--space-4); }
+    nav.tabs a { font-size: var(--text-sm); padding: var(--space-3) var(--space-2); }
+
+    .columns { grid-template-columns: minmax(0, 1fr); }
+    .hero-inner { flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5) var(--space-4); }
+    .hero h1 { font-size: var(--text-xl); }
+    .hero .summary { font-size: var(--text-base); }
+    .hero-avatar { width: 80px; height: 80px; font-size: var(--text-lg); }
+    .card { padding: var(--space-4); }
+
+    .rows-list.columns-2, .areas { grid-template-columns: minmax(0, 1fr); }
+    .timeline { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
+    .t-year { margin-top: var(--space-3); }
+    details.sources summary { min-height: 44px; padding: 0 var(--space-4); }
+    dl.stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-3); }
+    .tile-image { height: 130px; }
+    .photos-compact .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+    .photos-compact .tile-image { height: 72px; }
+    .photos-compact .tile-title { display: none; }
+    .photo-foot { flex-direction: column; gap: var(--space-1); }
+    .citation-entry.with-media { grid-template-columns: 110px minmax(0, 1fr); gap: var(--space-4); }
+    .citation-media .tile-image { height: 140px; }
+
+    .tree-view .tree-scroll, .tree-view .card-note { display: none; }
+    .tree-view .ancestor-list { display: block; }
+    ul.descendants ul { margin-left: var(--space-2); padding-left: var(--space-4); }
+    /* Too small to read on a phone, and the same people are in the family diagram. */
+    .lifespans-card { display: none; }
+    .map.large, .map.full { height: 380px; }
+}

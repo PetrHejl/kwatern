@@ -1,0 +1,28 @@
+Kwatern, a web viewer for Gramps family trees
+Copyright 2026 Petr Hejl
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+General Public License as published by the Free Software Foundation, either version 3 of the License, or (at
+your option) any later version. It is distributed WITHOUT ANY WARRANTY; see the license below for details.
+
+Parts of gramps-core follow the logic of Gramps (https://gramps-project.org), and the names of Gramps types in
+the page texts follow its translations. Gramps is licensed under the GNU General Public License version 2 or
+later.
+
+Kwatern includes the following third-party software, each under its own license, printed below:
+
+- ICU4J 78.3, Copyright Unicode, Inc. and others. Unicode License v3 (with the third-party notices that
+  come with ICU). https://github.com/unicode-org/icu
+- picocli 4.7.7, Copyright 2017 Remko Popma. Apache License 2.0. https://github.com/remkop/picocli
+- jte 3.2.4 (runtime), by the jte authors. Apache License 2.0. https://github.com/casid/jte
+- Leaflet 1.9.4, Copyright 2010-2023 Volodymyr Agafonkin, 2010-2011 CloudMade. BSD 2-Clause License.
+  https://leafletjs.com
+- Manrope, Copyright 2019 The Manrope Project Authors. SIL Open Font License 1.1.
+  https://github.com/sharanda/manrope
+- Source Sans 3, Copyright 2010-2020 Adobe, with Reserved Font Name 'Source'. SIL Open Font License 1.1.
+  https://github.com/adobe-fonts/source-sans
+
+The native executable also contains parts of GraalVM Community Edition (the Substrate VM runtime and the
+Java class library), licensed under the GNU General Public License version 2 with the Classpath Exception,
+and the third-party components listed in GraalVM's own notices. Their license, notices and the location of
+their source code follow the other licenses when the program runs as a native executable.

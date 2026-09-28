@@ -1,0 +1,36 @@
+{
+  "reflection": [
+    {
+      "type": "com.ibm.icu.text.CollatorServiceShim",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.ibm.icu.text.NumberFormatServiceShim",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "glob": "me/hejl/gramps/**/*.properties"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/*"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/coll/**"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/zone/**"
+    }
+  ]
+}

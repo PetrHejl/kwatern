@@ -1,0 +1,106 @@
+plugins {
+    id 'application'
+    id 'gg.jte.gradle' version '3.2.4'
+}
+
+dependencies {
+    implementation project(':gramps-core')
+    implementation project(':image')
+    implementation 'info.picocli:picocli:4.7.7'
+    implementation 'gg.jte:jte-runtime:3.2.4'
+    jteGenerate 'gg.jte:jte-native-resources:3.2.4'
+    // Generates the Native Image configuration picocli needs for reflection.
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.7'
+}
+
+// Templates in src/main/jte are turned into Java sources at build time, so no compiler is needed at run
+// time; the extension writes the Native Image configuration for them.
+jte {
+    generate()
+    jteExtension('gg.jte.nativeimage.NativeResourcesExtension')
+}
+
+tasks.named('compileJava') {
+    options.compilerArgs += ['-Aproject=me.hejl/kwatern']
+}
+
+application {
+    mainClass = 'me.hejl.kwatern.Main'
+    applicationName = 'kwatern'
+}
+
+// The program's license goes into it with the third-party ones (Licenses.java, --licenses), and next to it in the
+// JVM distribution.
+tasks.named('processResources') {
+    from(rootProject.file('LICENSE')) {
+        into 'me/hejl/kwatern/licenses'
+        rename { 'LICENSE.txt' }
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from(rootProject.file('LICENSE'))
+            from('src/main/resources/me/hejl/kwatern/licenses/NOTICE.txt')
+        }
+    }
+}
+
+// The native executable contains GraalVM's runtime and the Java class library, so it carries their license, their
+// notices and where their source is, taken from the GraalVM that builds it: GRAALVM_HOME, else JAVA_HOME, as the
+// Native Image plugin finds it. Only GraalVM Community Edition may build it; other editions have other terms.
+def graalvmHome = providers.environmentVariable('GRAALVM_HOME').orElse(providers.environmentVariable('JAVA_HOME'))
+def graalvmLicenses = tasks.register('graalvmLicenses') {
+    def output = layout.buildDirectory.dir('generated/graalvm-licenses')
+    def home = graalvmHome.map { new File(it) }
+    inputs.files(home.map { dir ->
+        ['release', 'LICENSE_NATIVEIMAGE.txt', 'THIRD_PARTY_LICENSE.txt'].collect { new File(dir, it) }
+    })
+    outputs.dir(output)
+    doLast {
+        def dir = home.get()
+        def release = new Properties()
+        new File(dir, 'release').withReader('UTF-8') { release.load(it) }
+        def value = { String key -> release.getProperty(key, '').replaceAll(/^"|"$/, '') }
+        if (!value('IMPLEMENTOR').contains('GraalVM Community')) {
+            throw new GradleException("Not GraalVM Community Edition: ${dir}")
+        }
+        def commit = (value('SOURCE') =~ /\bvm:([0-9a-f]+)/).with { it.find() ? it.group(1) : null }
+        if (commit == null) {
+            throw new GradleException("No GraalVM source commit in ${dir}/release")
+        }
+        def target = output.get().dir('me/hejl/kwatern/licenses/graalvm').asFile
+        target.mkdirs()
+        ['LICENSE_NATIVEIMAGE.txt', 'THIRD_PARTY_LICENSE.txt'].each { name ->
+            new File(target, name).bytes = new File(dir, name).bytes
+        }
+        def java = value('JAVA_RUNTIME_VERSION')
+        new File(target, 'SOURCE.txt').setText([
+            "This executable was built with GraalVM Community Edition ${value('GRAALVM_VERSION')} (Java ${java}).",
+            'The source code of its runtime (Substrate VM) and of the Java class library it contains:',
+            '',
+            "  https://github.com/oracle/graal/tree/${commit}",
+            "  https://github.com/graalvm/labs-openjdk/tree/${java}",
+            '',
+            "The GraalVM release: https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-${value('JAVA_VERSION')}",
+            '',
+        ].join('\n'), 'UTF-8')
+    }
+}
+
+graalvmNative {
+    binaries {
+        named('main') {
+            classpath.from(graalvmLicenses)
+            imageName = 'kwatern'
+            // The root build applies java-library to every module, which would make this a shared library.
+            sharedLibrary = false
+            // Runs shutdown hooks on SIGINT and SIGTERM, which remove media extracted from a package.
+            buildArgs.add('--install-exit-handlers')
+        }
+        named('test') {
+            classpath.from(graalvmLicenses)
+        }
+    }
+}

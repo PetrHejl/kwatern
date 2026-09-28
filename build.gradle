@@ -1,0 +1,109 @@
+plugins {
+    id 'com.diffplug.spotless' version '8.10.3' apply false
+    id 'org.graalvm.buildtools.native' version '1.1.14' apply false
+}
+
+// Formatting: ./gradlew spotlessApply fixes, ./gradlew spotlessCheck verifies (for CI).
+allprojects {
+    apply plugin: 'com.diffplug.spotless'
+
+    spotless {
+        if (project != rootProject) {
+            java {
+                // Only our sources, not the Java code JTE generates from templates.
+                target 'src/**/*.java'
+                palantirJavaFormat('2.99.0')
+                forbidWildcardImports()
+            }
+        }
+        format 'misc', {
+            target '*.gradle', '*.md', '*.properties', '.gitignore', 'docs/**/*.md', 'src/**/*.properties'
+            trimTrailingWhitespace()
+            leadingTabsToSpaces(4)
+            endWithNewline()
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+// Test data from the Gramps release the parser targets: the example tree, the XML schema and a photo. They are
+// GPL-licensed or from Wikimedia, so they are downloaded rather than committed.
+def grampsRelease = 'https://raw.githubusercontent.com/gramps-project/gramps/v6.0.8'
+
+tasks.register('downloadTestData') {
+    def files = [
+        'example.gramps': "${grampsRelease}/example/gramps/example.gramps".toString(),
+        'grampsxml.rng' : "${grampsRelease}/data/grampsxml.rng".toString(),
+        // Two media files of the example tree: a photo with face regions (thumbnails, portraits) and a PNG scan.
+        '1897_expeditionsmannschaft_rio_a.jpg':
+            "${grampsRelease}/example/gramps/1897_expeditionsmannschaft_rio_a.jpg".toString(),
+        'scanned_microfilm.png':
+            "${grampsRelease}/example/gramps/scanned_microfilm.png".toString(),
+    ]
+    def dir = layout.buildDirectory.dir('test-data')
+    inputs.property('files', files)
+    outputs.dir(dir)
+    doLast {
+        files.each { name, url ->
+            def target = dir.get().file(name).asFile
+            target.parentFile.mkdirs()
+            new URI(url).toURL().withInputStream { input ->
+                target.withOutputStream { it << input }
+            }
+        }
+    }
+}
+
+// Every module is a Java module: JDK 25, and JUnit tests that run both on the JVM (./gradlew test) and compiled into a
+// native executable (./gradlew nativeTest), which also catches missing Native Image configuration.
+// -PgrampsFile=/path/tree.gramps additionally runs the checks against a real export.
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'org.graalvm.buildtools.native'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(25)
+        }
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:6.1.3')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    def testData = rootProject.layout.buildDirectory.dir('test-data').get().asFile.absolutePath
+    def example = "${testData}/example.gramps"
+    def schema = "${testData}/grampsxml.rng"
+    def grampsFile = providers.gradleProperty('grampsFile').orNull
+
+    tasks.named('test') {
+        useJUnitPlatform()
+        dependsOn ':downloadTestData'
+        systemProperty 'gramps.example', example
+        systemProperty 'gramps.schema', schema
+        if (grampsFile != null) {
+            systemProperty 'gramps.file', grampsFile
+        }
+    }
+
+    graalvmNative {
+        binaries {
+            named('test') {
+                runtimeArgs.add("-Dgramps.example=${example}")
+                runtimeArgs.add("-Dgramps.schema=${schema}")
+                if (grampsFile != null) {
+                    runtimeArgs.add("-Dgramps.file=${grampsFile}")
+                }
+            }
+        }
+    }
+
+    tasks.named('nativeTest') {
+        dependsOn ':downloadTestData'
+    }
+}

@@ -1,0 +1,8 @@
+.gradle/
+build/
+.idea/
+*.iml
+
+# Never commit genealogy exports; they contain personal data.
+*.gramps
+*.gpkg
