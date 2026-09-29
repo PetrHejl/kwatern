@@ -12,14 +12,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
@@ -32,16 +29,8 @@ import me.hejl.gramps.model.GrampsCalendar;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.GrampsDate;
 import me.hejl.gramps.name.NameOrder;
-import me.hejl.gramps.privacy.AliveRules;
-import me.hejl.gramps.privacy.PrivacyFilter;
 import me.hejl.gramps.privacy.PrivacyOptions;
-import me.hejl.gramps.privacy.ProbablyAlive;
-import me.hejl.gramps.privacy.PublicDatabase;
 import me.hejl.gramps.xml.GrampsPackage;
-import me.hejl.gramps.xml.GrampsParseException;
-import me.hejl.gramps.xml.GrampsXml;
-import me.hejl.gramps.xml.ParseResult;
-import me.hejl.image.ImageDecoders;
 import me.hejl.kwatern.auth.Login;
 import me.hejl.kwatern.auth.PasswordHash;
 import me.hejl.kwatern.auth.Sessions;
@@ -49,6 +38,7 @@ import me.hejl.kwatern.auth.Users;
 import me.hejl.kwatern.web.MediaImages;
 import me.hejl.kwatern.web.Site;
 import me.hejl.kwatern.web.Sites;
+import me.hejl.kwatern.web.Version;
 import me.hejl.kwatern.web.WebServer;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -326,7 +316,7 @@ public final class Main implements Callable<Integer> {
 
     // Only the message of an export that cannot be loaded: a stack trace would add the messages of its causes.
     private static int failed(Exception e, CommandLine command, CommandLine.ParseResult parseResult) throws Exception {
-        if (!(e instanceof LoadException)) {
+        if (!(e instanceof Loader.LoadException)) {
             throw e;
         }
         command.getErr().println(command.getColorScheme().errorText(e.getMessage()));
@@ -341,20 +331,24 @@ public final class Main implements Callable<Integer> {
         }
         validate();
         Login login = access == Login.Access.OPEN ? null : login();
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (extracted != null) {
-                deleteTree(extracted);
-            }
-        }));
+        var loader = new Loader(new Loader.Settings(
+                file,
+                maxAge,
+                access,
+                publicOptions(),
+                membersOptions(),
+                mediaDir,
+                allowMediaAnywhere,
+                extractDir,
+                siteOptions()));
+        Runtime.getRuntime().addShutdownHook(new Thread(loader::close));
         if (access != Login.Access.PRIVATE) {
             warnAboutVisibility(publicOptions());
         }
-        Loaded loaded = load();
-        extracted = loaded.extracted();
+        Version version = loader.load();
         if (check) {
-            Site site = loaded.sites().members() != null
-                    ? loaded.sites().members()
-                    : loaded.sites().everyone();
+            Sites sites = version.sites();
+            Site site = sites.members() != null ? sites.members() : sites.everyone();
             System.out.print(icuSelfTest());
             System.out.print(imageSelfTest(site.data().database(), site.images()));
             if (login != null) {
@@ -366,41 +360,19 @@ public final class Main implements Callable<Integer> {
             return 0;
         }
 
-        WebServer server = new WebServer(loaded.sites(), login);
+        WebServer server = new WebServer(version, login);
         server.start(host, port);
         if (map == Toggle.ON) {
             System.out.println("maps: tiles from " + mapOptions().origin()
                     + ", loaded by visitors' browsers (--map=off to turn maps off)");
         }
         if (reload == Toggle.ON) {
-            ExportWatcher.start(file, Duration.ofSeconds(reloadInterval), changed -> reload(server));
+            ExportWatcher.start(file, Duration.ofSeconds(reloadInterval), changed -> reload(server, loader));
             System.out.printf("reload: when %s changes (checked every %d s)%n", file.getFileName(), reloadInterval);
         }
         System.out.printf("Listening on http://%s:%d/%n", host, port);
         return 0;
     }
-
-    /** A loaded export ready to serve, and the directory its package was extracted to, if it is one. */
-    private record Loaded(Sites sites, Path extracted) {}
-
-    /**
-     * The export could not be loaded. The message says why without quoting the export: its file names and contents
-     * hold data of the tree, and so may the messages of exceptions about them. Only a parse error's message, which
-     * says where and not what, is kept; otherwise the exception's type.
-     */
-    static final class LoadException extends IOException {
-        LoadException(Path file, Exception cause) {
-            super(
-                    "cannot load " + file.getFileName() + ": "
-                            + (cause instanceof GrampsParseException
-                                    ? cause.getMessage()
-                                    : cause.getClass().getSimpleName()),
-                    cause);
-        }
-    }
-
-    // The directory the media of the package being served were extracted to, removed when replaced or on exit.
-    private volatile Path extracted;
 
     private PrivacyOptions publicOptions() {
         return new PrivacyOptions(living == Visibility.HIDE, privateRecords == Visibility.HIDE);
@@ -459,81 +431,6 @@ public final class Main implements Callable<Integer> {
         }
     }
 
-    private Loaded load() throws IOException {
-        try {
-            return read();
-        } catch (ParameterException e) {
-            throw e;
-        } catch (IOException | RuntimeException e) {
-            throw new LoadException(file, e);
-        }
-    }
-
-    /** Reads the export, applies the privacy filter for each view and prepares their media, printing a summary. */
-    private Loaded read() throws IOException {
-        long start = System.nanoTime();
-        boolean isPackage = GrampsPackage.isPackage(file);
-        ParseResult result = isPackage ? GrampsPackage.read(file) : GrampsXml.read(file);
-        GrampsDatabase full = result.database();
-        var rules = AliveRules.DEFAULTS.withMaxAge(maxAge);
-        var alive = new ProbablyAlive(full, rules, LocalDate.now().getYear());
-        PublicDatabase everyone =
-                access == Login.Access.PRIVATE ? null : PrivacyFilter.apply(full, alive, publicOptions());
-        PublicDatabase members =
-                access == Login.Access.OPEN ? null : PrivacyFilter.apply(full, alive, membersOptions());
-        long loadMillis = (System.nanoTime() - start) / 1_000_000;
-
-        result.warnings().forEach(w -> System.err.println("warning: " + w));
-        System.out.print(summary(members != null ? members.database() : everyone.database(), loadMillis));
-        if (everyone != null) {
-            System.out.print(privacySummary(members != null ? "public view" : null, full, everyone, publicOptions()));
-        }
-        if (members != null) {
-            System.out.print(privacySummary("members' view", full, members, membersOptions()));
-        }
-        Path directory = null;
-        try {
-            if (isPackage) {
-                directory = extract(everyone, members);
-            }
-            Path media = directory;
-            String exportMediaPath = expandHome(full.header().mediaPath());
-            // One set of images for both views, each reaching only its own media: they are made once.
-            MediaImages images = mediaImages(members != null ? members : everyone, isPackage, media, exportMediaPath);
-            Sites sites = new Sites(
-                    everyone == null ? null : new Site(everyone, siteOptions(), images.forView(everyone.database())),
-                    members == null ? null : new Site(members, siteOptions(), images));
-            // The members' view has all the public one has.
-            long outside = sites.members() != null
-                    ? sites.members().images().outsideMediaDir()
-                    : sites.everyone().images().outsideMediaDir();
-            if (outside > 0) {
-                System.err.printf(
-                        "WARNING: %d published media files are outside the media directory %s and are not served;"
-                                + " see --media-dir and --allow-media-anywhere%n",
-                        outside, mediaDir(exportMediaPath));
-            }
-            return new Loaded(sites, directory);
-        } catch (IOException | RuntimeException e) {
-            if (directory != null) {
-                deleteTree(directory);
-            }
-            throw e;
-        }
-    }
-
-    /** The media of a view: from the package's extraction directory, else from the media directory or anywhere. */
-    private MediaImages mediaImages(
-            PublicDatabase published, boolean isPackage, Path extracted, String exportMediaPath) {
-        if (isPackage) {
-            return MediaImages.ofPackage(published.database(), extracted, ImageDecoders.DEFAULT);
-        }
-        Path dir = mediaDir(exportMediaPath);
-        return allowMediaAnywhere
-                ? MediaImages.anywhere(published.database(), dir, exportMediaPath, ImageDecoders.DEFAULT)
-                : new MediaImages(published.database(), dir, exportMediaPath, ImageDecoders.DEFAULT);
-    }
-
     private Site.Options siteOptions() {
         return new Site.Options(
                 language,
@@ -547,26 +444,20 @@ public final class Main implements Callable<Integer> {
      * Loads the changed export and serves it from the next request on. If it cannot be loaded, for example
      * while only part of it has been copied, the previous version stays.
      */
-    private void reload(WebServer server) {
+    private void reload(WebServer server, Loader loader) {
         System.out.println("reload: " + file.getFileName() + " changed, loading it");
         try {
-            Loaded loaded = load();
-            server.replace(loaded.sites());
-            Path previous = extracted;
-            extracted = loaded.extracted();
-            if (previous != null) {
-                deleteTree(previous);
-            }
+            server.replace(loader.load());
             System.out.println("reload: serving the new version");
-        } catch (LoadException e) {
+        } catch (Loader.LoadException e) {
             System.err.println("reload: " + e.getMessage() + ", keeping the previous version");
-        } catch (IOException | RuntimeException e) {
+        } catch (RuntimeException e) {
             System.err.println("reload: cannot serve the new version, keeping the previous one: "
                     + e.getClass().getSimpleName());
         }
     }
 
-    private void validate() {
+    private void validate() throws IOException {
         if (!mapTiles.matches("https?://[^/]+/.*")
                 || !mapTiles.contains("{z}")
                 || !mapTiles.contains("{x}")
@@ -589,6 +480,13 @@ public final class Main implements Callable<Integer> {
         }
         if (mediaDir != null && !Files.isDirectory(mediaDir)) {
             throw new ParameterException(spec.commandLine(), "Not a directory: " + mediaDir);
+        }
+        if ((mediaDir != null || allowMediaAnywhere) && GrampsPackage.isPackage(file)) {
+            throw new ParameterException(
+                    spec.commandLine(),
+                    mediaDir != null
+                            ? "--media-dir does not apply to a package, which holds its media; see --extract-dir"
+                            : "--allow-media-anywhere does not apply to a package, which holds its media");
         }
         if (reloadInterval < 1) {
             throw new ParameterException(spec.commandLine(), "--reload-interval must be at least 1 second");
@@ -641,57 +539,6 @@ public final class Main implements Callable<Integer> {
         }
     }
 
-    /**
-     * Extracts the media files of a package that are published in either view, never the others, and returns
-     * the directory.
-     */
-    private Path extract(PublicDatabase... views) throws IOException {
-        if (mediaDir != null) {
-            throw new ParameterException(
-                    spec.commandLine(),
-                    "--media-dir does not apply to a package, which holds its media; see --extract-dir");
-        }
-        if (allowMediaAnywhere) {
-            throw new ParameterException(
-                    spec.commandLine(), "--allow-media-anywhere does not apply to a package, which holds its media");
-        }
-        // A new directory for every load, so that a reload never changes the files being served.
-        Path directory = extractDir != null
-                ? Files.createTempDirectory(Files.createDirectories(extractDir), "kwatern-media")
-                : Files.createTempDirectory("kwatern-media");
-        Set<String> names = Arrays.stream(views)
-                .filter(Objects::nonNull)
-                .flatMap(view -> view.database().media().all().stream())
-                .map(m -> GrampsPackage.archiveName(m.path()))
-                .collect(Collectors.toSet());
-        long start = System.nanoTime();
-        GrampsPackage.Extraction extraction = GrampsPackage.extract(file, directory, names);
-        System.out.printf(
-                "package: extracted %d of %d published media files to %s in %d ms%n",
-                extraction.extracted(), names.size(), directory, (System.nanoTime() - start) / 1_000_000);
-        if (extraction.noSpace() > 0) {
-            System.err.printf(
-                    "WARNING: %d media files are not extracted, as they would leave less than %d MB free in %s;"
-                            + " see --extract-dir%n",
-                    extraction.noSpace(), GrampsPackage.KEEP_FREE >> 20, directory);
-        }
-        return directory;
-    }
-
-    private static void deleteTree(Path directory) {
-        try (var paths = Files.walk(directory)) {
-            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.delete(path);
-                } catch (IOException e) {
-                    // Left for the system to clean up.
-                }
-            });
-        } catch (IOException e) {
-            // Left for the system to clean up.
-        }
-    }
-
     private Site.MapOptions mapOptions() {
         if (map == Toggle.OFF) {
             return Site.MapOptions.OFF;
@@ -700,24 +547,6 @@ public final class Main implements Callable<Integer> {
                 ? mapAttribution
                 : mapTiles.equals(Site.MapOptions.OSM_TILES) ? Site.MapOptions.OSM_ATTRIBUTION : "";
         return new Site.MapOptions(true, mapTiles, attribution);
-    }
-
-    private static String expandHome(String path) {
-        if (path != null && (path.equals("~") || path.startsWith("~/"))) {
-            return System.getProperty("user.home") + path.substring(1);
-        }
-        return path;
-    }
-
-    private Path mediaDir(String exportMediaPath) {
-        if (mediaDir != null) {
-            return mediaDir;
-        }
-        Path exportDir = file.toAbsolutePath().getParent();
-        if (exportMediaPath == null || exportMediaPath.isBlank()) {
-            return exportDir;
-        }
-        return exportDir.resolve(exportMediaPath);
     }
 
     /** Checks a password and a session, to show that the JDK's cryptography works in this build. */
@@ -817,47 +646,6 @@ public final class Main implements Callable<Integer> {
                     : !options.hideLiving() ? "living people" : "private records";
             System.err.println("WARNING: " + what + " are visible to everyone who can open this site.");
         }
-    }
-
-    /** @param view which view it is about, or {@code null} if there is only one */
-    private static String privacySummary(
-            String view, GrampsDatabase full, PublicDatabase published, PrivacyOptions options) {
-        long all = full.objects().count();
-        long withheld = all - published.database().objects().count();
-        return "privacy%s: living people %s (%d), private records %s; %d of %d objects withheld%n"
-                .formatted(
-                        view == null ? "" : " (" + view + ")",
-                        options.hideLiving() ? "hidden" : "shown",
-                        published.living().size(),
-                        options.hidePrivate() ? "hidden" : "shown",
-                        withheld,
-                        all);
-    }
-
-    private static String summary(GrampsDatabase db, long loadMillis) {
-        Runtime runtime = Runtime.getRuntime();
-        System.gc();
-        long usedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-        return """
-                Gramps XML %s, exported %s by Gramps %s
-                people %d, families %d, events %d, places %d
-                sources %d, citations %d, repositories %d, media %d, notes %d
-                loaded in %d ms, heap in use %d MB
-                """.formatted(
-                        db.schemaVersion(),
-                        db.header().created(),
-                        db.header().grampsVersion(),
-                        db.people().size(),
-                        db.families().size(),
-                        db.events().size(),
-                        db.places().size(),
-                        db.sources().size(),
-                        db.citations().size(),
-                        db.repositories().size(),
-                        db.media().size(),
-                        db.notes().size(),
-                        loadMillis,
-                        usedMb);
     }
 
     /** Formats fixed dates and sorts names in a few locales, to show that ICU works in this build. */

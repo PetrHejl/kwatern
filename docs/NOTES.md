@@ -302,8 +302,10 @@ Python's `tarfile` writes them; no dependency).
 - First pass: only `data.gramps` is read. After the privacy filter, a second pass extracts only the
   published media files, so private media and media of living people never reach the disk.
 - They go into a new directory (mode 700) for every load, in the system's temporary directory or in
-  `--extract-dir` (useful where `/tmp` is kept in memory), removed when a reload replaces it and on exit,
-  including on SIGINT and SIGTERM (the binary is built with `--install-exit-handlers`). `--media-dir` is refused with a package, so an extraction cannot overwrite a media folder.
+  `--extract-dir` (useful where `/tmp` is kept in memory), removed when a reload has replaced it and no request
+  uses it any more, and on exit, including on SIGINT and SIGTERM (the binary is built with
+  `--install-exit-handlers`). `--media-dir` is refused with a package, so an extraction cannot overwrite a media
+  folder.
 - Entries are only written inside that directory: names leading outside it, links and devices are skipped.
 - Files that would leave less than 256 MB free are not extracted, with a warning: a small package from someone
   else can hold huge files of zeros, which would fill the disk, or the memory where `/tmp` is.
@@ -326,7 +328,9 @@ version from the next request on. Added 2026-09-28.
   replaces the old one at once; each request uses the version it started with. If the file cannot be
   loaded, for example a truncated copy, the old version stays and the reason is printed.
 - Thumbnails start afresh with each version, since a media file can change on disk without its Gramps
-  object changing. A package is extracted into a new directory and the previous one removed.
+  object changing. A package is extracted into a new directory, and the previous one removed once the last request
+  using the previous version has ended (`web/Version`). Until 2026-09-29 it was removed at once, while requests of
+  the previous version might still be reading its files. `Loader` makes the versions, `Main` only the command line.
 - While loading, both versions are in memory. Over 31 reloads of the example tree with `-Xmx96m` the
   process stayed at 82 MB; without a limit it levels off higher (see Memory under Decisions).
 - The native image includes the XML parser's message bundle, so broken files give its real error instead
