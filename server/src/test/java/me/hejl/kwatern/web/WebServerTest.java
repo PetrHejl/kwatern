@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -440,6 +441,48 @@ class WebServerTest {
             assertTrue(body.contains("<a href=\"https://example.org/kwatern\">Source code (AGPL)</a>"));
         } finally {
             withSource.stop();
+        }
+    }
+
+    @Test
+    void mapsEventsWithoutAType() throws Exception {
+        // Gramps always writes one, but the schema does not require it, so other programs may leave it out.
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <database xmlns="http://gramps-project.org/xml/1.7.2/">
+                  <events>
+                    <event handle="_e0" change="1" id="E0"><place hlink="_p0"/></event>
+                    <event handle="_e1" change="1" id="E1"><type>Birth</type><place hlink="_p0"/></event>
+                  </events>
+                  <places>
+                    <placeobj handle="_p0" change="1" id="P0" type="City">
+                      <pname value="Brno"/><coord long="16.61" lat="49.19"/>
+                    </placeobj>
+                  </places>
+                </database>
+                """;
+        GrampsDatabase db = GrampsXml.read(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)))
+                .database();
+        var untyped = new WebServer(new Site(
+                PrivacyFilter.apply(db, new ProbablyAlive(db, AliveRules.DEFAULTS, 2026)), Site.Options.DEFAULT));
+        int port = untyped.start("127.0.0.1", 0);
+        try {
+            for (String kind : new String[] {"all", "births", "marriages", "deaths"}) {
+                var response = CLIENT.send(
+                        HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/map?kind=" + kind))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
+                // The kinds of events other than all failed with a server error.
+                assertEquals(200, response.statusCode(), kind);
+            }
+            String all = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/map"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(all.contains("2 events"), "the event without a type is on the map of all events");
+        } finally {
+            untyped.stop();
         }
     }
 
