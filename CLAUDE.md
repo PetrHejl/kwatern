@@ -20,7 +20,9 @@ decisions or finding something worth remembering.
   `server/src/main/jte`; they only lay out records from `view/Pages`, which `view/Views` fills with
   formatted, translated text. Page texts live in `server/src/main/resources/me/hejl/kwatern/messages*.properties`.
   Signing in lives in `server/.../auth`. With a login, each view is its own filtered `Site` (`Sites`), so pages
-  never check who is viewing; keep it that way rather than hiding data in templates.
+  never check who is viewing; keep it that way rather than hiding data in templates. Media files are read only
+  through `web/MediaImages`, which keeps an export's paths inside the media directory (a package's inside its
+  extraction directory) and serves a file as it is only when its content matches its type; keep it that way.
 
 ## Build and test
 
@@ -36,7 +38,9 @@ server/build/native/nativeCompile/kwatern --check /path/to/tree.gramps
 ```
 
 After changing anything that may use reflection or resources (new library, ICU features, resource
-files), run `./gradlew nativeTest`; the JVM tests do not catch missing Native Image configuration. Also
+files), run `./gradlew nativeTest`; the JVM tests do not catch missing Native Image configuration. The same goes
+for settings read when a class is initialized, such as the JDK's HTTP server reading system properties: Native
+Image may do that while building and keep the build's values (see `native-image.properties` in `server`). Also
 build the binary and run `--check`, and extend it when a new feature could fail that way. Test setup for
 all modules (JUnit, the example tree, native tests) lives in the root `build.gradle`.
 
@@ -72,7 +76,11 @@ file that ships in the program (including fonts and scripts) needs an entry in
 
 - Genealogy exports contain personal data about living people. Never commit `.gramps` or `.gpkg`
   files, and never print names, dates or other personal details from a real export in test output or
-  logs; print counts only.
+  logs; print counts only. The same holds for the program's own output: errors, warnings and summaries
+  name object IDs, kinds of pages or counts, never values from the tree, paths with names, or exception
+  messages that may quote them.
+- An export or package may come from someone else. Treat what it contains, including media paths, types and
+  sizes, as untrusted input.
 - The privacy defaults must stay safe: without options nothing private and no details of living people
   are published.
 
