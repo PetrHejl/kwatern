@@ -236,8 +236,15 @@ public final class Main implements Callable<Integer> {
             paramLabel = "DIR",
             description = "Directory with the media files. Default: the media path set in the export, else the"
                     + " export's directory. Files the export names by absolute path under its media path are looked"
-                    + " for here too.")
+                    + " for here too. Only files in it are served; set it for an export from someone else, whose"
+                    + " media path could be any directory.")
     private Path mediaDir;
+
+    @Option(
+            names = "--allow-media-anywhere",
+            description = "Serve media files outside the media directory too, where the export says, as Gramps"
+                    + " allows. Only for your own export: one from someone else could name any file.")
+    private boolean allowMediaAnywhere;
 
     @Option(
             names = "--extract-dir",
@@ -456,23 +463,37 @@ public final class Main implements Callable<Integer> {
             String exportMediaPath = expandHome(full.header().mediaPath());
             Function<PublicDatabase, Site> site = published -> published == null
                     ? null
-                    : new Site(
-                            published,
-                            siteOptions(),
-                            isPackage
-                                    ? MediaImages.ofPackage(published.database(), media, ImageDecoders.DEFAULT)
-                                    : new MediaImages(
-                                            published.database(),
-                                            mediaDir(exportMediaPath),
-                                            exportMediaPath,
-                                            ImageDecoders.DEFAULT));
-            return new Loaded(new Sites(site.apply(everyone), site.apply(members)), directory);
+                    : new Site(published, siteOptions(), mediaImages(published, isPackage, media, exportMediaPath));
+            Sites sites = new Sites(site.apply(everyone), site.apply(members));
+            // The members' view has all the public one has.
+            long outside = sites.members() != null
+                    ? sites.members().images().outsideMediaDir()
+                    : sites.everyone().images().outsideMediaDir();
+            if (outside > 0) {
+                System.err.printf(
+                        "WARNING: %d published media files are outside the media directory %s and are not served;"
+                                + " see --media-dir and --allow-media-anywhere%n",
+                        outside, mediaDir(exportMediaPath));
+            }
+            return new Loaded(sites, directory);
         } catch (IOException | RuntimeException e) {
             if (directory != null) {
                 deleteTree(directory);
             }
             throw e;
         }
+    }
+
+    /** The media of a view: from the package's extraction directory, else from the media directory or anywhere. */
+    private MediaImages mediaImages(
+            PublicDatabase published, boolean isPackage, Path extracted, String exportMediaPath) {
+        if (isPackage) {
+            return MediaImages.ofPackage(published.database(), extracted, ImageDecoders.DEFAULT);
+        }
+        Path dir = mediaDir(exportMediaPath);
+        return allowMediaAnywhere
+                ? MediaImages.anywhere(published.database(), dir, exportMediaPath, ImageDecoders.DEFAULT)
+                : new MediaImages(published.database(), dir, exportMediaPath, ImageDecoders.DEFAULT);
     }
 
     private Site.Options siteOptions() {
@@ -588,6 +609,10 @@ public final class Main implements Callable<Integer> {
             throw new ParameterException(
                     spec.commandLine(),
                     "--media-dir does not apply to a package, which holds its media; see --extract-dir");
+        }
+        if (allowMediaAnywhere) {
+            throw new ParameterException(
+                    spec.commandLine(), "--allow-media-anywhere does not apply to a package, which holds its media");
         }
         // A new directory for every load, so that a reload never changes the files being served.
         Path directory = extractDir != null
