@@ -1,16 +1,10 @@
 package me.hejl.kwatern.auth;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.PosixFileAttributeView;
-import java.nio.file.attribute.PosixFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -134,48 +128,6 @@ public final class Users {
         if (!replaced) {
             lines.add(line);
         }
-        replace(target, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
-    }
-
-    /**
-     * Writes a new version beside the file and moves it over the file, so that the file is never half written:
-     * written in place, a full disk or a crash lost every member.
-     */
-    private static void replace(Path file, byte[] content) throws IOException {
-        // Readable by its owner only where the file system allows, as temporary files are.
-        Path written = Files.createTempFile(file.getParent(), "." + file.getFileName(), ".tmp");
-        try {
-            if (Files.exists(file)) {
-                keepOwnerAndPermissions(file, written);
-            }
-            try (FileChannel channel = FileChannel.open(written, StandardOpenOption.WRITE)) {
-                ByteBuffer buffer = ByteBuffer.wrap(content);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            Files.move(written, file, StandardCopyOption.ATOMIC_MOVE);
-        } finally {
-            Files.deleteIfExists(written);
-        }
-    }
-
-    private static void keepOwnerAndPermissions(Path file, Path written) throws IOException {
-        PosixFileAttributes old;
-        try {
-            old = Files.readAttributes(file, PosixFileAttributes.class);
-        } catch (UnsupportedOperationException e) {
-            return;
-        }
-        Files.setPosixFilePermissions(written, old.permissions());
-        try {
-            // Where the server runs as another user, e.g. after sudo, it must still be able to read the file.
-            PosixFileAttributeView view = Files.getFileAttributeView(written, PosixFileAttributeView.class);
-            view.setGroup(old.group());
-            view.setOwner(old.owner());
-        } catch (IOException e) {
-            // Only root may give a file away; the file then belongs to whoever set the password.
-        }
+        SecretFiles.replace(target, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
     }
 }

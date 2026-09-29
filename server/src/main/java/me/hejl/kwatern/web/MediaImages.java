@@ -1,11 +1,14 @@
 package me.hejl.kwatern.web;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -216,20 +219,37 @@ public final class MediaImages {
 
     private Optional<Header> header(Media media) {
         Optional<Header> header = store.headers.get(media.handle());
-        if (header == null) {
-            // Read outside the map, whose computeIfAbsent would hold up other media while the file is read. Two
-            // requests at once may both read it.
-            header = file(media).flatMap(file -> {
-                try (InputStream in = Files.newInputStream(file)) {
-                    var reader = decoders.open(in);
-                    return Optional.of(new Header(reader.info(), reader.mimeType()));
-                } catch (IOException | RuntimeException e) {
-                    return Optional.empty();
-                }
-            });
+        if (header != null) {
+            return header;
+        }
+        // Read outside the map, whose computeIfAbsent would hold up other media while the file is read. Two
+        // requests at once may both read it.
+        header = Optional.empty();
+        boolean lasting = true;
+        Optional<Path> file = file(media);
+        if (file.isPresent()) {
+            try (InputStream in = Files.newInputStream(file.get())) {
+                var reader = decoders.open(in);
+                header = Optional.of(new Header(reader.info(), reader.mimeType()));
+            } catch (IOException e) {
+                lasting = lasting(e);
+            } catch (RuntimeException e) {
+                // A malformed header the decoder does not catch: the file cannot be shown.
+            }
+        }
+        if (lasting) {
             store.headers.putIfAbsent(media.handle(), header);
         }
         return header;
+    }
+
+    /**
+     * Whether a failure to read a file will stay: it is not an image we can read, it ends early, or it is not there.
+     * Other errors, such as of a disk or network mount, may pass, so their outcome is not kept: before, one of them
+     * hid the image until the export was loaded again.
+     */
+    private static boolean lasting(IOException e) {
+        return e instanceof ImageException || e instanceof EOFException || e instanceof NoSuchFileException;
     }
 
     /** Whether images can probably be made of a media file. */
@@ -415,10 +435,17 @@ public final class MediaImages {
             Thread.currentThread().interrupt();
             return Optional.empty();
         } catch (ExecutionException e) {
+            // Failed for a reason that may pass, such as a read error: tried again on the next request.
+            store.cache.remove(key, task);
             return Optional.empty();
         }
     }
 
+    /**
+     * Makes an image; empty if the file cannot be made into one, which is kept.
+     *
+     * @throws UncheckedIOException if the file could not be read for a reason that may pass, see {@link #lasting}
+     */
     private Optional<byte[]> make(Media media, Region region, Kind kind) throws InterruptedException {
         PERMITS.acquire();
         // Only called for readable media, which have a file.
@@ -438,6 +465,9 @@ public final class MediaImages {
         } catch (IOException e) {
             System.err.println(
                     "Cannot read media " + media.id() + ": " + e.getClass().getSimpleName());
+            if (!lasting(e)) {
+                throw new UncheckedIOException(e);
+            }
             return Optional.empty();
         } catch (RuntimeException e) {
             // A malformed file the decoder does not catch; the page shows no image instead of failing.

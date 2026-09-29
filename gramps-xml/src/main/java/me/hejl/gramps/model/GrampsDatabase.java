@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -180,7 +181,7 @@ public final class GrampsDatabase {
                 .forEach(object -> References.visit(object, (type, handle) -> {
                     if (!contains(type, handle)) {
                         problems.add(object.getClass().getSimpleName() + " " + object.id() + " -> "
-                                + type.name().toLowerCase() + " " + handle);
+                                + type.name().toLowerCase(Locale.ROOT) + " " + handle);
                     }
                 }));
         return problems;

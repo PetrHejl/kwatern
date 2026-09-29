@@ -26,14 +26,14 @@ final class ExportWatcher implements AutoCloseable {
     private record Stamp(long modified, long size) {}
 
     private final Path file;
-    private final Listener listener;
     private final ScheduledExecutorService executor;
+    // Set before the first check, which the executor then sees.
+    private Listener listener;
     private Stamp loaded;
     private Stamp seen;
 
-    private ExportWatcher(Path file, Listener listener) {
+    private ExportWatcher(Path file) {
         this.file = file;
-        this.listener = listener;
         this.executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "export-watcher");
             thread.setDaemon(true);
@@ -42,12 +42,25 @@ final class ExportWatcher implements AutoCloseable {
         this.loaded = stamp();
     }
 
+    /**
+     * Notes the file as it is now, before it is loaded: a change while it is being loaded is then reported once
+     * the watching starts, instead of being taken for the version loaded.
+     */
+    static ExportWatcher of(Path file) {
+        return new ExportWatcher(file);
+    }
+
     /** Starts watching a file as it is now; the listener hears of later changes. */
     static ExportWatcher start(Path file, Duration interval, Listener listener) {
-        ExportWatcher watcher = new ExportWatcher(file, listener);
+        return of(file).start(interval, listener);
+    }
+
+    /** Starts watching; the listener hears of changes since the file was noted by {@link #of}. */
+    ExportWatcher start(Duration interval, Listener listener) {
+        this.listener = listener;
         long millis = interval.toMillis();
-        watcher.executor.scheduleWithFixedDelay(watcher::check, millis, millis, TimeUnit.MILLISECONDS);
-        return watcher;
+        executor.scheduleWithFixedDelay(this::check, millis, millis, TimeUnit.MILLISECONDS);
+        return this;
     }
 
     private Stamp stamp() {

@@ -14,7 +14,7 @@ import javax.crypto.spec.PBEKeySpec;
  */
 public final class PasswordHash {
 
-    // OWASP's recommendation for PBKDF2-HMAC-SHA256 (2023); about a third of a second per check.
+    // OWASP's recommendation for PBKDF2-HMAC-SHA256 (2023); about 0.6 s per check in the native binary.
     static final int ITERATIONS = 600_000;
     private static final String SCHEME = "pbkdf2-sha256";
     private static final int SALT_BYTES = 16;

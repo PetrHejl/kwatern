@@ -217,7 +217,7 @@ final class ChartViews extends ViewPart {
                     .ifPresent(f -> f.eventRefs()
                             .forEach(ref -> db.events().get(ref.event()).ifPresent(events::add)));
         }
-        events.sort(Comparator.comparingInt(e -> sortValue(e) == 0 ? Integer.MAX_VALUE : sortValue(e)));
+        events.sort(Comparator.comparingInt(e -> undatedLast(sortValue(e))));
         Map<String, List<String>> byPlace = new LinkedHashMap<>();
         for (Event event : events) {
             if (event.place() != null && db.places().contains(event.place())) {

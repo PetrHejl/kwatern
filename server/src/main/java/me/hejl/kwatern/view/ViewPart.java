@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -136,9 +137,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         for (PrimaryObject referrer : db.referrers(event.handle())) {
             switch (referrer) {
                 case Person p -> {
-                    boolean primary = p.eventRefs().stream()
-                            .anyMatch(r -> event.handle().equals(r.event()) && "Primary".equals(r.role()));
-                    if (primary) {
+                    if (primaryIn(p, event)) {
                         who.add(link(p));
                     }
                 }
@@ -150,6 +149,12 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
             }
         }
         return who;
+    }
+
+    /** Whether the event is about the person, not one they only took part in, such as a witness. */
+    static boolean primaryIn(Person person, Event event) {
+        return person.eventRefs().stream()
+                .anyMatch(r -> event.handle().equals(r.event()) && "Primary".equals(r.role()));
     }
 
     /** An object in words with a link, such as a person's name or "Birth of Lewis Anderson Garner". */
@@ -226,7 +231,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
     }
 
     static String gender(Person person) {
-        return person.gender().name().toLowerCase();
+        return person.gender().name().toLowerCase(Locale.ROOT);
     }
 
     String initials(Person person) {
@@ -319,7 +324,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
     int familySortValue(Family family) {
         Event marriage = marriage(family);
         int value = marriage == null ? 0 : sortValue(marriage);
-        return value == 0 ? Integer.MAX_VALUE : value;
+        return undatedLast(value);
     }
 
     Event marriage(Family family) {
@@ -382,10 +387,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
     }
 
     String sourceTitle(Citation citation) {
-        return db.sources()
-                .get(citation.source())
-                .map(s -> s.title() == null || s.title().isBlank() ? ui.t("unknown") : s.title())
-                .orElse(ui.t("unknown"));
+        return db.sources().get(citation.source()).map(this::sourceTitle).orElse(ui.t("unknown"));
     }
 
     /** Collects the citations shown on a page, each once, with what they support. */

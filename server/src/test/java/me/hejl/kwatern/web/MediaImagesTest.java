@@ -22,9 +22,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Media;
 import me.hejl.gramps.xml.GrampsXml;
+import me.hejl.image.Area;
 import me.hejl.image.ImageDecoder;
 import me.hejl.image.ImageDecoders;
+import me.hejl.image.ImageInfo;
 import me.hejl.image.ImageReader;
+import me.hejl.image.RowSink;
 import me.hejl.image.jpeg.JpegDecoder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -196,6 +199,58 @@ class MediaImagesTest {
         assertEquals(2, opened.get(), "the header once, the image once");
         assertTrue(images.display(photo).isPresent());
         assertEquals(2, opened.get(), "then from the cache");
+    }
+
+    @Test
+    void triesAgainAfterAReadErrorThatMayPass() throws Exception {
+        Path media = Path.of(System.getProperty("gramps.example")).getParent();
+        GrampsDatabase db = tree("1897_expeditionsmannschaft_rio_a.jpg");
+        Media photo = db.media().byId("O0").orElseThrow();
+        // Reading fails when told to, as on a network mount that is away for a moment.
+        var failing = new AtomicBoolean(true);
+        ImageDecoder jpeg = new JpegDecoder();
+        var decoders = new ImageDecoders(List.of(new ImageDecoder() {
+            @Override
+            public boolean accepts(byte[] header) {
+                return jpeg.accepts(header);
+            }
+
+            @Override
+            public ImageReader open(InputStream in) {
+                ImageReader reader = jpeg.open(in);
+                return new ImageReader() {
+                    @Override
+                    public ImageInfo info() throws IOException {
+                        if (failing.get()) {
+                            throw new IOException("Input/output error");
+                        }
+                        return reader.info();
+                    }
+
+                    @Override
+                    public String mimeType() {
+                        return reader.mimeType();
+                    }
+
+                    @Override
+                    public void decode(RowSink sink, int minWidth, int minHeight, Area area) throws IOException {
+                        if (failing.get()) {
+                            throw new IOException("Input/output error");
+                        }
+                        reader.decode(sink, minWidth, minHeight, area);
+                    }
+                };
+            }
+        }));
+        var images = new MediaImages(db, media, null, decoders);
+        assertFalse(images.readable(photo));
+        failing.set(false);
+        assertTrue(images.readable(photo), "read again, not taken for a file that cannot be shown");
+
+        failing.set(true);
+        assertTrue(images.thumbnail(photo).isEmpty());
+        failing.set(false);
+        assertTrue(images.thumbnail(photo).isPresent(), "made again, not kept as failed");
     }
 
     @Test

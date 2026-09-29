@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -169,6 +170,14 @@ class AuthTest {
         Path file = directory.resolve("secret");
         byte[] first = Sessions.keyFile(file);
         assertEquals(32, first.length);
+        assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(file));
+        try (var files = Files.list(directory)) {
+            assertEquals(List.of(file), files.toList(), "written beside it and moved, nothing left");
+        }
+        assertThrows(
+                FileAlreadyExistsException.class,
+                () -> SecretFiles.create(file, new byte[] {1}),
+                "a key someone else made meanwhile is kept");
         byte[] again = Sessions.keyFile(file);
         assertTrue(Arrays.equals(first, again), "the same key after a restart");
         Files.writeString(file, "not base64!");

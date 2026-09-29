@@ -345,6 +345,8 @@ public final class Main implements Callable<Integer> {
         if (access != Login.Access.PRIVATE) {
             warnAboutVisibility(publicOptions());
         }
+        // Noted before loading, so that a change while it loads is not taken for the version loaded.
+        ExportWatcher watcher = reload == Toggle.ON && !check ? ExportWatcher.of(file) : null;
         Version version = loader.load();
         if (check) {
             Sites sites = version.sites();
@@ -366,8 +368,8 @@ public final class Main implements Callable<Integer> {
             System.out.println("maps: tiles from " + mapOptions().origin()
                     + ", loaded by visitors' browsers (--map=off to turn maps off)");
         }
-        if (reload == Toggle.ON) {
-            ExportWatcher.start(file, Duration.ofSeconds(reloadInterval), changed -> reload(server, loader));
+        if (watcher != null) {
+            watcher.start(Duration.ofSeconds(reloadInterval), changed -> reload(server, loader));
             System.out.printf("reload: when %s changes (checked every %d s)%n", file.getFileName(), reloadInterval);
         }
         System.out.printf("Listening on http://%s:%d/%n", host, port);

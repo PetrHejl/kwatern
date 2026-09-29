@@ -169,7 +169,7 @@ final class PersonViews extends ViewPart {
         }
         int from = sortValue(birth);
         Event death = firstEvent(person, DEATH);
-        int to = death == null || sortValue(death) == 0 ? Integer.MAX_VALUE : sortValue(death);
+        int to = death == null ? Integer.MAX_VALUE : undatedLast(sortValue(death));
         List<Dated> rows = new ArrayList<>();
         for (Relative relative : relatives) {
             boolean elder =
@@ -390,7 +390,7 @@ final class PersonViews extends ViewPart {
     /** Rows by date; undated ones keep their order at the end. */
     private static List<EventRow> inDateOrder(List<Dated> rows) {
         return rows.stream()
-                .sorted(Comparator.comparingInt((Dated d) -> d.sortValue() == 0 ? Integer.MAX_VALUE : d.sortValue()))
+                .sorted(Comparator.comparingInt((Dated d) -> undatedLast(d.sortValue())))
                 .map(Dated::row)
                 .toList();
     }

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -62,13 +61,9 @@ public final class Sessions {
     public static byte[] keyFile(Path file) throws IOException {
         if (!Files.exists(file)) {
             byte[] key = randomKey();
-            try {
-                Files.createFile(
-                        file, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-            } catch (UnsupportedOperationException e) {
-                Files.createFile(file);
-            }
-            Files.writeString(file, Base64.getEncoder().encodeToString(key) + "\n", StandardCharsets.US_ASCII);
+            // Created whole: an empty file, left by a crash between creating and writing it, stopped the next start.
+            SecretFiles.create(
+                    file, (Base64.getEncoder().encodeToString(key) + "\n").getBytes(StandardCharsets.US_ASCII));
             return key;
         }
         try {
