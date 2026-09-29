@@ -78,6 +78,11 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   colour, such as the white or the green kwatern. The old spelling needs no accents. It was gramps-serve, then
   briefly Pamětník, until 2026-09-28. `gramps-xml` and `gramps-core` keep their descriptive names, as they are about
   Gramps data.
+- **README screenshots** (`docs/screenshots`) show the Gramps example tree (v6.0.8, GPL-2.0-or-later, fictional
+  people), person I0044, 1280 px wide, light theme, `--living=show --private=show`. Its photos are public domain on
+  Wikimedia Commons except `Gunnlaugur_Larusson_-_Yawn.jpg` and `scanned_microfilm.png`, whose source is unclear;
+  those two `<object>`s and their `<objref>`s are removed from the copy used for screenshots. Map tiles do not load
+  in headless Firefox (`firefox --headless --screenshot`), so there is no map screenshot.
 
 ## Web design
 

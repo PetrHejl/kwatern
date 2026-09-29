@@ -12,6 +12,17 @@ Status: early development. It serves person, family, place and source pages with
 descendant charts, maps, media pages, a surname index and a search. See [docs/NOTES.md](docs/NOTES.md) for
 progress, decisions and open items.
 
+## Screenshots
+
+| | |
+|---|---|
+| [![Person page](docs/screenshots/person.png)](docs/screenshots/person.png) | [![Ancestors fan chart](docs/screenshots/fan-chart.png)](docs/screenshots/fan-chart.png) |
+| [![Descendants](docs/screenshots/descendants.png)](docs/screenshots/descendants.png) | [![Family page](docs/screenshots/family.png)](docs/screenshots/family.png) |
+
+The screenshots show the fictional example tree of the Gramps project
+([example.gramps](https://github.com/gramps-project/gramps/tree/v6.0.8/example/gramps), GPL-2.0-or-later)
+with its public-domain photos from Wikimedia Commons.
+
 ## Modules
 
 - `gramps-xml` - parser and immutable model for Gramps XML (schema 1.7.x). No runtime dependencies.
