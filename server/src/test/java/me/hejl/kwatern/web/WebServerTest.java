@@ -129,6 +129,13 @@ class WebServerTest {
     }
 
     @Test
+    void logsOnlyAddressCharactersOfAnAddress() {
+        assertEquals("192.0.2.1", WebServer.printable("192.0.2.1"));
+        assertEquals("fe80::1%eth0", WebServer.printable("fe80::1%eth0"));
+        assertEquals("1.2.3.4?sign-in:?ok?from?x", WebServer.printable("1.2.3.4\nsign-in: ok from x"));
+    }
+
+    @Test
     void speaksTheBrowsersLanguage() throws Exception {
         var czech = get("/person/I0044", "cs-CZ,cs;q=0.9,en;q=0.8");
         assertTrue(czech.body().contains("<html lang=\"cs\">"));

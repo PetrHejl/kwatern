@@ -156,6 +156,18 @@ class GrampsXmlParserTest {
                 assertThrows(GrampsParseException.class, () -> GrampsXml.read(new ByteArrayInputStream(xml)));
         // The XML parser's own message, which a native image only has if its resource bundle is included.
         assertFalse(e.getMessage().contains("resource bundle"), e.getMessage());
-        assertTrue(e.getMessage().startsWith("Malformed Gramps XML"), e.getMessage());
+        assertTrue(e.getMessage().startsWith("Malformed Gramps XML at line 2, column "), e.getMessage());
+    }
+
+    @Test
+    void parseErrorsDoNotQuoteTheTree() {
+        byte[] xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <database xmlns="http://gramps-project.org/xml/1.7.2/"><people><person><name><first>&Novak;</first>
+                """.getBytes(StandardCharsets.UTF_8);
+        GrampsParseException e =
+                assertThrows(GrampsParseException.class, () -> GrampsXml.read(new ByteArrayInputStream(xml)));
+        assertFalse(e.getMessage().contains("Novak"), e.getMessage());
+        assertTrue(e.getMessage().startsWith("Malformed Gramps XML at line 2, column "), e.getMessage());
     }
 }

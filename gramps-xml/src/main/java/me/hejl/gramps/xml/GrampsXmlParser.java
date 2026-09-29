@@ -96,9 +96,16 @@ final class GrampsXmlParser {
                 reader.close();
             }
         } catch (XMLStreamException e) {
-            throw new GrampsParseException("Malformed Gramps XML: " + e.getMessage(), e);
+            // Where, not the XML parser's message: that may quote the tree, such as an element's text.
+            var location = e.getLocation();
+            throw new GrampsParseException(
+                    location == null || location.getLineNumber() < 0
+                            ? "Malformed Gramps XML"
+                            : "Malformed Gramps XML at line " + location.getLineNumber() + ", column "
+                                    + location.getColumnNumber(),
+                    e);
         } catch (RuntimeException e) {
-            throw new GrampsParseException("Invalid Gramps XML: " + e.getMessage(), e);
+            throw new GrampsParseException("Invalid Gramps XML: " + e.getClass().getSimpleName(), e);
         }
     }
 

@@ -235,7 +235,8 @@ public final class WebServer {
         // Shown again in the form, unless it cannot be anyone's name anyway.
         String shown = name.length() > 64 ? "" : name;
         try {
-            switch (login.signIn(address(exchange), name, password)) {
+            String address = address(exchange);
+            switch (login.signIn(address, name, password)) {
                 case Login.Result.SignedIn signedInAs -> {
                     String cookie = login.sessions().issue(signedInAs.user(), keep);
                     if (cookie == null) {
@@ -246,8 +247,13 @@ public final class WebServer {
                     setCookie(exchange, cookie, Sessions.maxAge(keep));
                     redirect(exchange, next);
                 }
-                case Login.Result.Wrong wrong -> signInPage(exchange, ui, 200, shown, next, keep, ui.t("signin.wrong"));
+                case Login.Result.Wrong wrong -> {
+                    // The address, for tools such as fail2ban; not the name, which may be a password typed there.
+                    System.err.println("sign-in: wrong name or password from " + printable(address));
+                    signInPage(exchange, ui, 200, shown, next, keep, ui.t("signin.wrong"));
+                }
                 case Login.Result.TooMany tooMany -> {
+                    System.err.println("sign-in: too many attempts from " + printable(address));
                     exchange.getResponseHeaders()
                             .set(
                                     "Retry-After",
@@ -311,6 +317,11 @@ public final class WebServer {
             address = addresses[addresses.length - 1].strip();
         }
         return address.length() > 64 ? address.substring(0, 64) : address;
+    }
+
+    /** An address as a log may show it: a forwarded one is whatever the header held, so only address characters. */
+    static String printable(String address) {
+        return address.replaceAll("[^0-9A-Za-z.:%_-]", "?");
     }
 
     /** Whether the visitor uses HTTPS, which only a proxy in front of this server can tell. */
