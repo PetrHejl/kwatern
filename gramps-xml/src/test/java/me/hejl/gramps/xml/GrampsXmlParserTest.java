@@ -91,6 +91,8 @@ class GrampsXmlParserTest {
                 GrampsDate.textOnly("winter 1901"),
                 events.byId("E3").orElseThrow().date());
         assertEquals(2, result.warnings().size(), result.warnings()::toString);
+        assertTrue(result.warnings().contains("Unparseable date value kept as text"), result.warnings()::toString);
+        assertFalse(result.warnings().toString().contains("winter"), "warnings are printed; dates stay out of them");
     }
 
     @Test

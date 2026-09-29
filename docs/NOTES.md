@@ -269,6 +269,9 @@ In the server (`web/MediaImages`):
   signature). So even a file the export may name, e.g. with `--allow-media-anywhere` or a media path of `/`,
   is never served when it is a key, settings or other text.
 - **Logs** name only the media ID when an image cannot be made, since file names often contain names.
+  Likewise an error while serving a page logs only the kind of page (`/surname/...`) and the exceptions' types
+  and stack traces, not the rest of the path or their messages, and a date the parser cannot read is counted in
+  the warnings but not quoted.
 
 Native binary on the real export: all 582 readable media files (one is the GIF) give thumbnails in 36 s when
 requested one after another, the same speed as on the JVM; from the cache they take 5 ms each. Memory went from
@@ -348,6 +351,9 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
   - "Keep me signed in": 30 days. Otherwise a browser-session cookie valid 12 hours. Renewed at most hourly
     while in use.
   - The key comes from `--secret-file` (created with a random key if missing), else it is random per start.
+  - Signing out removes the cookie in that browser only; a copied cookie stays valid until it expires. There is
+    no "sign out everywhere" button, which would need state on the server: a new password ends a member's
+    sessions, and a new `--secret-file` everyone's (both in the README).
   - Flags: `HttpOnly`, `SameSite=Lax`, and `Secure` when the proxy reports HTTPS.
 - **Forms:** sign-in and sign-out are POST forms without JavaScript.
   - Against cross-site forms: `Origin` must match `Host` (or `X-Forwarded-Host` behind a proxy). Without
@@ -360,6 +366,9 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
     failures in flight (one after a block), and further ones are refused with `Retry-After`. Otherwise many
     guesses sent at once all passed the check before the first failure was counted, and queued for the password
     check, which also kept members from signing in.
+  - At most 32 attempts are in flight in all (the last waits some 10 s); further ones are refused at once. Many
+    addresses (easy with IPv6) and names could otherwise queue without end. Such a flood still keeps members
+    from signing in while it lasts, but costs no more memory and answers at once.
   - An unknown name takes as long as a wrong password and gets the same message.
   - Without `--behind-proxy` behind a proxy, every visitor has the proxy's address and shares one counter.
   - A member's name can be blocked by others guessing it, for at most 15 minutes at a time.

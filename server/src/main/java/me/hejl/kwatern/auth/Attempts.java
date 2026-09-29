@@ -12,7 +12,8 @@ import java.util.Map;
  * memory only. Thread-safe.
  *
  * <p>Attempts still being checked count too: an address or name may have only as many in flight as it has free
- * attempts left, so that many sent at once cannot all be checked before the first failure is counted.
+ * attempts left, so that many sent at once cannot all be checked before the first failure is counted. Attempts in
+ * flight are also limited in all, as many addresses and names could otherwise queue without end.
  */
 final class Attempts {
 
@@ -24,6 +25,9 @@ final class Attempts {
     static final Duration BUSY_WAIT = Duration.ofSeconds(1);
     // Beyond this many counters, those no longer relevant are dropped.
     private static final int MAX_ENTRIES = 10_000;
+    // Attempts in flight in all. With two password checks of about 0.6 s at a time, the last waits some 10 s;
+    // further ones are refused at once rather than queued, which would take memory and keep members waiting.
+    static final int MAX_IN_FLIGHT = 32;
 
     /** @param pending attempts started and not yet ended */
     private record Entry(int failures, Instant first, Instant blockedUntil, int pending) {
@@ -32,6 +36,7 @@ final class Attempts {
 
     private final Map<String, Entry> entries = new HashMap<>();
     private final Clock clock;
+    private int inFlight;
 
     Attempts(Clock clock) {
         this.clock = clock;
@@ -51,7 +56,11 @@ final class Attempts {
                     : entry.pending() >= Math.max(1, FREE - entry.failures()) ? BUSY_WAIT : Duration.ZERO;
             wait = left.compareTo(wait) > 0 ? left : wait;
         }
+        if (wait.isZero() && inFlight >= MAX_IN_FLIGHT) {
+            wait = BUSY_WAIT;
+        }
         if (wait.isZero()) {
+            inFlight++;
             for (String key : keys(address, name)) {
                 Entry entry = current(key, now);
                 store(key, new Entry(entry.failures(), entry.first(), entry.blockedUntil(), entry.pending() + 1));
@@ -62,6 +71,7 @@ final class Attempts {
 
     synchronized void failed(String address, String name) {
         Instant now = clock.instant();
+        inFlight--;
         if (entries.size() > MAX_ENTRIES) {
             entries.keySet().removeIf(key -> current(key, now).equals(Entry.NONE));
         }
@@ -81,6 +91,7 @@ final class Attempts {
     /** A successful sign-in clears the name's failures; the address keeps its own. */
     synchronized void succeeded(String address, String name) {
         Instant now = clock.instant();
+        inFlight--;
         Entry byAddress = current("a:" + address, now);
         store(
                 "a:" + address,
