@@ -41,7 +41,8 @@ import me.hejl.gramps.model.Url;
  *       links but lose names, gender, events, notes, media and all other details, and families with a
  *       living parent lose their events and details too;
  *   <li>objects that were only reachable through removed ones, such as the note or birth event of a living
- *       person, or a place only used by that event.
+ *       person, or a place only used by that event;
+ *   <li>media that no published object links to.
  * </ul>
  *
  * <p>Every reference in the result points to an object that exists.
@@ -158,7 +159,7 @@ public final class PrivacyFilter {
 
     /**
      * Whether an object only existed to serve objects that are now gone. People and families always stay,
-     * as does anything that was not referenced to begin with, such as a source without citations.
+     * as does anything that was not referenced to begin with, such as a source without citations, except media.
      */
     private boolean orphaned(PrimaryObject object, Set<String> referenced) {
         if (object instanceof Person || object instanceof Family) {
@@ -166,6 +167,10 @@ public final class PrivacyFilter {
         }
         if (object instanceof Citation c && !kept.contains(c.source())) {
             return true;
+        }
+        // A photo nothing links to yet may well show someone alive, and nothing here says who.
+        if (object instanceof Media) {
+            return !referenced.contains(object.handle());
         }
         return !referenced.contains(object.handle())
                 && !db.referrers(object.handle()).isEmpty();

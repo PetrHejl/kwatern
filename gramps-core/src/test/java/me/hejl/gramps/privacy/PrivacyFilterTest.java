@@ -108,6 +108,31 @@ class PrivacyFilterTest {
     }
 
     @Test
+    void publishesOnlyLinkedMedia() {
+        String objects = new StringBuilder("<objects>")
+                .append("<object handle=\"_O1\" change=\"1\" id=\"O1\"><file src=\"a.jpg\" mime=\"image/jpeg\"")
+                .append(" description=\"\"/></object>")
+                .append("<object handle=\"_O2\" change=\"1\" id=\"O2\"><file src=\"b.jpg\" mime=\"image/jpeg\"")
+                .append(" description=\"\"/></object>")
+                .append("<object handle=\"_O3\" change=\"1\" id=\"O3\"><file src=\"c.jpg\" mime=\"image/jpeg\"")
+                .append(" description=\"\"/></object>")
+                .append("</objects>")
+                .toString();
+        var db = TestTrees.parse(
+                event("D1", "Death", dateval("1900")),
+                person("I1", name("Jan") + eventref("D1") + "<objref hlink=\"_O1\"/>")
+                        + person("I2", name("Jana") + "<objref hlink=\"_O2\"/>"),
+                "",
+                objects);
+        GrampsDatabase out = filter(db).database();
+
+        assertTrue(out.media().contains("_O1"), "linked from a published person");
+        assertFalse(out.media().contains("_O2"), "linked only from a living person");
+        assertFalse(out.media().contains("_O3"), "linked from nothing");
+        assertEquals(List.of(), out.danglingReferences());
+    }
+
+    @Test
     void canShowLivingPeopleAndPrivateRecords() throws IOException {
         GrampsDatabase db =
                 GrampsXml.read(Path.of(System.getProperty("gramps.example"))).database();

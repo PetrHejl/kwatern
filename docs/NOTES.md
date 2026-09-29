@@ -78,6 +78,8 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   used to decide who may be alive.
 - **Living people:** shown only as "Living" with no name, gender, dates or other details. They keep their
   family links so the tree has no gaps. Families with a living parent lose their events and details.
+- **Media nothing links to** are not published, unlike other unlinked objects such as a source without
+  citations: a photo added but not yet linked may show someone alive, and nothing says who.
   A login for family members to see everything may come in milestone 6.
 - **Name:** Kwatern (`kwatern` in commands, files and the `me.hejl.kwatern` package), so the name does not
   suggest an official Gramps project. It is the old spelling of the Czech *kvatern*, a volume of the Bohemian land
@@ -326,6 +328,8 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
     a library.
   - A check takes about 0.6 s in the native binary; two run at a time at most.
   - The file is re-read within 2 s of a change; a malformed new version keeps the old members.
+  - A warning at startup when the group or everyone can read it or the `--secret-file`: hashes can be guessed
+    offline, and the key signs sessions for anyone.
 - **Sessions:** a stateless signed cookie, so the server stores nothing.
   - Contents: name, expiry and "keep" flag, signed with HMAC-SHA256 over them plus the member's current
     password hash. Changing the password or deleting the line ends the member's sessions at once.
@@ -354,6 +358,11 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
   non-loopback address unless `--behind-proxy` or `--allow-insecure-login` is given.
   - Trusted proxy headers: the last `X-Forwarded-For` entry, `X-Forwarded-Proto` and `X-Forwarded-Host`.
   - Only the proxy must be able to reach the server, or those headers can be forged.
+  - A request must arrive within 30 s (`sun.net.httpserver.maxReqTime`, which the JDK leaves unlimited), so that
+    clients sending slowly cannot hold connections open. Answers are not limited, as large files take long over
+    slow links. Setting the property on the command line overrides it.
+  - The JDK's server classes are initialized at run time in the native image (`native-image.properties`);
+    initialized while building, they kept the build's unlimited value and the connection stayed open.
 - **Header:** in members mode, "Sign in" at the end of the header returns to the current page.
   - Signed in, the header shows the name and a "Sign out" button, styled as a link, since signing out is a
     POST.
