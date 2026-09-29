@@ -13,6 +13,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Media;
@@ -34,6 +36,8 @@ import me.hejl.kwatern.view.Views;
 public final class WebServer {
 
     private static final String STATIC = "/me/hejl/kwatern/static/";
+    // The files that exist, read once: they are part of the program and never change while it runs.
+    private static final Map<String, StaticFile> STATIC_FILES = new ConcurrentHashMap<>();
     // Map tiles are the only content from elsewhere, and only when maps are on.
     private static final String SECURITY_POLICY = "default-src 'self'; img-src 'self' data:%s; style-src 'self';"
             + " script-src 'self'; frame-ancestors 'none'";
@@ -408,7 +412,7 @@ public final class WebServer {
     }
 
     private void route(Site site, HttpExchange exchange, String path, Ui ui) throws IOException {
-        var views = new Views(site.data(), ui, site.images());
+        var views = new Views(site.data(), site.index(), ui, site.images());
         GrampsDatabase db = site.data().database();
         String[] parts = path.substring(1).split("/", 2);
         String key = parts.length > 1 ? parts[1] : "";
@@ -598,15 +602,24 @@ public final class WebServer {
             send(exchange, 404, "text/plain; charset=utf-8", new byte[0]);
             return;
         }
-        String etag = jpeg.get().etag();
-        var headers = exchange.getResponseHeaders();
-        headers.set("ETag", etag);
-        headers.set("Cache-Control", imageCaching(members));
-        if (etag.equals(exchange.getRequestHeaders().getFirst("If-None-Match"))) {
-            exchange.sendResponseHeaders(304, -1);
+        exchange.getResponseHeaders().set("Cache-Control", imageCaching(members));
+        if (notModified(exchange, jpeg.get().etag())) {
             return;
         }
         send(exchange, 200, "image/jpeg", jpeg.get().data());
+    }
+
+    /**
+     * Sets the tag of a response and answers 304 if the browser already has it; else the response is still to be
+     * sent.
+     */
+    private static boolean notModified(HttpExchange exchange, String etag) throws IOException {
+        exchange.getResponseHeaders().set("ETag", etag);
+        if (etag.equals(exchange.getRequestHeaders().getFirst("If-None-Match"))) {
+            exchange.sendResponseHeaders(304, -1);
+            return true;
+        }
+        return false;
     }
 
     /** The larger image of a media page, or the file itself. */
@@ -629,8 +642,19 @@ public final class WebServer {
         headers.set("Content-Security-Policy", "default-src 'none'; img-src 'self'; sandbox");
         headers.set("Content-Disposition", "inline");
         headers.set("Cache-Control", imageCaching(members));
+        // The members' view has the browser check each time: without a tag, it fetched the whole file again.
+        var attributes = Files.readAttributes(original.get().file(), BasicFileAttributes.class);
+        long size = attributes.size();
+        String etag = "\"%s-%d-%d-%d\""
+                .formatted(
+                        media.get().handle(),
+                        media.get().change(),
+                        size,
+                        attributes.lastModifiedTime().toMillis());
+        if (notModified(exchange, etag)) {
+            return;
+        }
         boolean head = exchange.getRequestMethod().equals("HEAD");
-        long size = Files.size(original.get().file());
         exchange.sendResponseHeaders(200, head ? -1 : size == 0 ? -1 : size);
         if (!head) {
             try (OutputStream out = exchange.getResponseBody()) {
@@ -644,19 +668,31 @@ public final class WebServer {
             send(exchange, 404, "text/plain; charset=utf-8", new byte[0]);
             return;
         }
-        try (InputStream in = WebServer.class.getResourceAsStream(STATIC + name)) {
-            if (in == null) {
-                send(exchange, 404, "text/plain; charset=utf-8", new byte[0]);
-                return;
+        StaticFile file = STATIC_FILES.get(name);
+        if (file == null) {
+            try (InputStream in = WebServer.class.getResourceAsStream(STATIC + name)) {
+                if (in == null) {
+                    // Not kept: any name of the right form would take memory.
+                    send(exchange, 404, "text/plain; charset=utf-8", new byte[0]);
+                    return;
+                }
+                byte[] data = in.readAllBytes();
+                file = new StaticFile(data, "\"" + Urls.hash(data) + "\"");
+                STATIC_FILES.putIfAbsent(name, file);
             }
-            // Font files never change under the same name, nor does the stylesheet under its versioned URL; other
-            // requests for it are checked with the server each time, so a new build shows at once.
-            boolean fixed = name.endsWith(".woff2") || (Urls.stylesheet().equals("/static/" + name + "?" + query));
-            exchange.getResponseHeaders()
-                    .set("Cache-Control", fixed ? "public, max-age=31536000, immutable" : "no-cache");
-            send(exchange, 200, contentType(name), in.readAllBytes());
         }
+        // Font files never change under the same name, nor does the stylesheet under its versioned URL; other
+        // requests for it are checked with the server each time, so a new build shows at once.
+        boolean fixed = name.endsWith(".woff2") || (Urls.stylesheet().equals("/static/" + name + "?" + query));
+        exchange.getResponseHeaders().set("Cache-Control", fixed ? "public, max-age=31536000, immutable" : "no-cache");
+        if (notModified(exchange, file.etag())) {
+            return;
+        }
+        send(exchange, 200, contentType(name), file.data());
     }
+
+    /** A file of the program's own, such as the stylesheet or a font, and its tag for HTTP caching. */
+    private record StaticFile(byte[] data, String etag) {}
 
     private static String contentType(String name) {
         return switch (name.substring(name.lastIndexOf('.') + 1)) {

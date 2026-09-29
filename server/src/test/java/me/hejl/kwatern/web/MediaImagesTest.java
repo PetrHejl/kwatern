@@ -2,6 +2,7 @@ package me.hejl.kwatern.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -195,6 +196,39 @@ class MediaImagesTest {
         assertEquals(2, opened.get(), "the header once, the image once");
         assertTrue(images.display(photo).isPresent());
         assertEquals(2, opened.get(), "then from the cache");
+    }
+
+    @Test
+    void makesImagesOnceForBothViews() throws Exception {
+        Path media = Path.of(System.getProperty("gramps.example")).getParent();
+        // The members' view has a document outside the media directory that the public one does not have.
+        GrampsDatabase members = tree("1897_expeditionsmannschaft_rio_a.jpg", "/elsewhere/letter.pdf");
+        GrampsDatabase everyone = tree("1897_expeditionsmannschaft_rio_a.jpg");
+        var opened = new AtomicInteger();
+        ImageDecoder jpeg = new JpegDecoder();
+        var decoders = new ImageDecoders(List.of(new ImageDecoder() {
+            @Override
+            public boolean accepts(byte[] header) {
+                return jpeg.accepts(header);
+            }
+
+            @Override
+            public ImageReader open(InputStream in) {
+                opened.incrementAndGet();
+                return jpeg.open(in);
+            }
+        }));
+        var membersImages = new MediaImages(members, media, null, decoders);
+        var publicImages = membersImages.forView(everyone);
+
+        var made = membersImages.thumbnail(members.media().byId("O0").orElseThrow());
+        assertEquals(2, opened.get(), "the header and the image");
+        var shared = publicImages.thumbnail(everyone.media().byId("O0").orElseThrow());
+        assertTrue(made.isPresent() && shared.isPresent());
+        assertSame(made.get().data(), shared.get().data());
+        assertEquals(2, opened.get(), "made once for both views");
+        assertEquals(1, membersImages.outsideMediaDir());
+        assertEquals(0, publicImages.outsideMediaDir(), "each view counts only its own media");
     }
 
     @Test

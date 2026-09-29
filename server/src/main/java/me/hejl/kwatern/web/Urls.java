@@ -30,13 +30,19 @@ public final class Urls {
     /** The first 12 hex digits of the SHA-256 of a resource. */
     static String version(String resource) {
         try (InputStream in = Urls.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                return "0";
-            }
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(in.readAllBytes());
-            return HexFormat.of().formatHex(hash, 0, 6);
-        } catch (IOException | NoSuchAlgorithmException e) {
+            return in == null ? "0" : hash(in.readAllBytes());
+        } catch (IOException e) {
             return "0";
+        }
+    }
+
+    /** The first 12 hex digits of the SHA-256 of some content, which change whenever it does. */
+    static String hash(byte[] content) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(content);
+            return HexFormat.of().formatHex(hash, 0, 6);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
         }
     }
 

@@ -5,9 +5,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import me.hejl.gramps.i18n.Languages;
+import me.hejl.gramps.place.Coordinates;
 import me.hejl.gramps.privacy.PublicDatabase;
 import me.hejl.kwatern.Version;
 import me.hejl.kwatern.view.SearchIndex;
+import me.hejl.kwatern.view.TreeIndex;
 
 /** The published data and a {@link Ui} per page language. Thread-safe. */
 public final class Site {
@@ -56,6 +58,9 @@ public final class Site {
     private final PublicDatabase data;
     private final Options options;
     private final SearchIndex search;
+    private final TreeIndex index;
+    private final boolean hasMedia;
+    private final boolean hasMap;
     private final MediaImages images;
     private final Map<String, Ui> uis = new ConcurrentHashMap<>();
 
@@ -68,6 +73,12 @@ public final class Site {
         this.data = data;
         this.options = options;
         this.search = new SearchIndex(data);
+        this.index = new TreeIndex(data);
+        this.hasMedia = data.database().media().size() > 0;
+        this.hasMap = options.map().enabled()
+                && data.database().places().all().stream()
+                        .anyMatch(p ->
+                                Coordinates.parse(p.latitude(), p.longitude()).isPresent());
         this.images = images;
     }
 
@@ -81,6 +92,11 @@ public final class Site {
 
     public SearchIndex search() {
         return search;
+    }
+
+    /** Lookups for pages, built once for this version of the tree. */
+    public TreeIndex index() {
+        return index;
     }
 
     public PublicDatabase data() {
@@ -109,7 +125,7 @@ public final class Site {
         if (language == null) {
             language = options.defaultLanguage();
         }
-        return uis.computeIfAbsent(language, l -> new Ui(Locale.of(l), data.database(), options));
+        return uis.computeIfAbsent(language, l -> new Ui(Locale.of(l), data.database(), options, hasMedia, hasMap));
     }
 
     /**

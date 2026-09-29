@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -52,14 +53,34 @@ public final class GrampsPackage {
     }
 
     /**
-     * Extracts the media files with the given names (media paths as {@link #archiveName} gives them) into a
-     * directory. Other entries, and any whose name would lead outside the directory, are skipped.
+     * What extracting a package did.
      *
-     * @return the number of files extracted
+     * @param extracted files written
+     * @param noSpace   files left out because they would have left less than {@link #KEEP_FREE} free
      */
-    public static int extract(Path file, Path directory, Set<String> names) throws IOException {
+    public record Extraction(int extracted, int noSpace) {}
+
+    /**
+     * Space left free on the file system that media are extracted to. A package may come from someone else, and a
+     * small one can hold huge files of zeros, which would fill the disk, or the memory where {@code /tmp} is kept
+     * in memory.
+     */
+    public static final long KEEP_FREE = 256L << 20;
+
+    /**
+     * Extracts the media files with the given names (media paths as {@link #archiveName} gives them) into a
+     * directory. Other entries, and any whose name would lead outside the directory, are skipped, and so are files
+     * that would leave less than {@link #KEEP_FREE} bytes free.
+     */
+    public static Extraction extract(Path file, Path directory, Set<String> names) throws IOException {
+        return extract(file, directory, names, KEEP_FREE);
+    }
+
+    static Extraction extract(Path file, Path directory, Set<String> names, long keepFree) throws IOException {
         Path root = directory.toAbsolutePath().normalize();
+        FileStore store = Files.getFileStore(Files.createDirectories(root));
         int count = 0;
+        int noSpace = 0;
         try (InputStream in = open(file)) {
             Tar tar = new Tar(in);
             for (Tar.Entry entry = tar.next(); entry != null; entry = tar.next()) {
@@ -71,12 +92,16 @@ public final class GrampsPackage {
                 if (!target.startsWith(root) || target.equals(root)) {
                     continue;
                 }
+                if (entry.size() > store.getUsableSpace() - keepFree) {
+                    noSpace++;
+                    continue;
+                }
                 Files.createDirectories(target.getParent());
                 Files.copy(tar.content(), target, StandardCopyOption.REPLACE_EXISTING);
                 count++;
             }
         }
-        return count;
+        return new Extraction(count, noSpace);
     }
 
     /** The name a media path has in a package: with forward slashes and no leading slash, as Python writes it. */

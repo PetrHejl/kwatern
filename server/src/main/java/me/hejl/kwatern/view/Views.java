@@ -115,10 +115,12 @@ public final class Views {
     private final GrampsDatabase db;
     private final Ui ui;
     private final MediaImages images;
+    private final TreeIndex index;
 
-    public Views(PublicDatabase data, Ui ui, MediaImages images) {
+    public Views(PublicDatabase data, TreeIndex index, Ui ui, MediaImages images) {
         this.data = data;
         this.db = data.database();
+        this.index = index;
         this.ui = ui;
         this.images = images;
     }
@@ -126,6 +128,7 @@ public final class Views {
     // ---------------------------------------------------------------- pages
 
     public HomePage home() {
+        Map<String, List<Person>> surnames = index.surnames();
         return new HomePage(
                 db.homePerson().map(this::link).orElse(null),
                 db.people().size(),
@@ -134,30 +137,33 @@ public final class Views {
                 db.places().size(),
                 db.sources().size(),
                 db.media().size(),
-                surnameCounts().size(),
+                surnames.size(),
                 db.header().created());
     }
 
+    /** All surnames under the letters of the page language's alphabet; the same on every request. */
     public SurnameIndex surnames() {
-        Map<String, Integer> counts = surnameCounts();
-        int withoutSurname = counts.getOrDefault("", 0);
-        counts.remove("");
-        List<Letter> letters = new ArrayList<>();
-        for (NameOrder.Bucket<String> bucket : ui.order().alphabeticIndex(counts.keySet(), s -> s)) {
-            letters.add(new Letter(
-                    bucket.label(),
-                    bucket.items().stream()
-                            .map(s -> new SurnameEntry(s, Urls.surname(s), counts.get(s)))
-                            .toList()));
-        }
-        return new SurnameIndex(letters, withoutSurname);
+        return ui.page("surnames", () -> {
+            Map<String, List<Person>> surnames = index.surnames();
+            List<Letter> letters = new ArrayList<>();
+            Set<String> named = new HashSet<>(surnames.keySet());
+            named.remove("");
+            for (NameOrder.Bucket<String> bucket : ui.order().alphabeticIndex(named, s -> s)) {
+                letters.add(new Letter(
+                        bucket.label(),
+                        bucket.items().stream()
+                                .map(s -> new SurnameEntry(
+                                        s, Urls.surname(s), surnames.get(s).size()))
+                                .toList()));
+            }
+            return new SurnameIndex(
+                    letters, surnames.getOrDefault("", List.of()).size());
+        });
     }
 
     /** The people listed under a surname, or {@code null} if there are none. */
     public SurnamePage surname(String surname) {
-        List<Person> people = db.people().all().stream()
-                .filter(p -> !data.isLiving(p.handle()) && p.primaryName() != null)
-                .filter(p -> ui.order().group(p.primaryName()).equals(surname))
+        List<Person> people = index.surnames().getOrDefault(surname, List.of()).stream()
                 .sorted(Comparator.comparing(Person::primaryName, ui.order().names()))
                 .toList();
         return people.isEmpty()
@@ -231,11 +237,14 @@ public final class Views {
                 .toList();
 
         // A place that contains others is shown as an overview of everything within it.
-        List<Place> children = childPlaces(place);
+        List<Place> children = index.placesWithin(place);
         Set<String> area = within(place);
-        List<Event> events = db.events().all().stream()
-                .filter(e -> e.place() != null && area.contains(e.place()))
-                .sorted(Comparator.comparingInt(e -> sortValue(e) == 0 ? Integer.MAX_VALUE : sortValue(e)))
+        // By date, undated last, and in file order on the same date; each date is converted once.
+        List<Event> events = area.stream()
+                .flatMap(h -> index.eventsAt(h).stream())
+                .map(e -> new SortedEvent(e, undatedLast(sortValue(e)), index.eventOrder(e)))
+                .sorted(Comparator.comparingInt(SortedEvent::date).thenComparingInt(SortedEvent::order))
+                .map(SortedEvent::event)
                 .toList();
         boolean overview = !children.isEmpty();
         List<PlaceEvent> happened = events.stream()
@@ -336,16 +345,6 @@ public final class Views {
                 at == null ? "" : Urls.place(at));
     }
 
-    /** Places directly within this one. */
-    private List<Place> childPlaces(Place place) {
-        return db.referrers(place.handle()).stream()
-                .filter(Place.class::isInstance)
-                .map(Place.class::cast)
-                .filter(p ->
-                        p.enclosedBy().stream().anyMatch(r -> place.handle().equals(r.place())))
-                .toList();
-    }
-
     /** The place and every place within it, at any depth; a hierarchy that loops back is followed once. */
     private Set<String> within(Place place) {
         Set<String> handles = new LinkedHashSet<>();
@@ -353,11 +352,14 @@ public final class Views {
         while (!todo.isEmpty()) {
             Place next = todo.pop();
             if (handles.add(next.handle())) {
-                todo.addAll(childPlaces(next));
+                todo.addAll(index.placesWithin(next));
             }
         }
         return handles;
     }
+
+    /** An event with its date's sort value (undated last) and its position in the file, for sorting. */
+    private record SortedEvent(Event event, int date, int order) {}
 
     /** Surnames of the people the events are about, most frequent first, counting each person once. */
     private List<SurnameEntry> surnamesOf(List<Event> events) {
@@ -943,15 +945,20 @@ public final class Views {
     }
 
     /**
-     * All places with events on one map, as circles by the number of events.
+     * All places with events on one map, as circles by the number of events; the same on every request.
      *
      * @param requestedKind   {@code births}, {@code marriages}, {@code deaths}, or anything else for all events
      * @param requestedPeriod {@code before1800}, {@code 1800s}, {@code 1900s}, or anything else for any time
      */
     public TreeMapPage treeMap(String requestedKind, String requestedPeriod) {
-        // Anything else would end up in the filter links, and none of them would be marked as chosen.
-        String kind = MAP_KINDS.contains(requestedKind) ? requestedKind : "all";
-        String period = MAP_PERIODS.contains(requestedPeriod) ? requestedPeriod : "all";
+        // Anything else would end up in the filter links, and none of them would be marked as chosen. It also keeps
+        // the pages kept to the few filters there are.
+        String kind = requestedKind != null && MAP_KINDS.contains(requestedKind) ? requestedKind : "all";
+        String period = requestedPeriod != null && MAP_PERIODS.contains(requestedPeriod) ? requestedPeriod : "all";
+        return ui.page("map/" + kind + "/" + period, () -> makeTreeMap(kind, period));
+    }
+
+    private TreeMapPage makeTreeMap(String kind, String period) {
         Map<String, Integer> counts = new HashMap<>();
         Map<String, Located> points = new HashMap<>();
         Set<String> unmapped = new HashSet<>();
@@ -1085,8 +1092,12 @@ public final class Views {
                 sources.uses());
     }
 
-    /** All media, by decade of their date, undated last. */
+    /** All media, by decade of their date, undated last; the same on every request. */
     public PhotosPage photos() {
+        return ui.page("photos", this::makePhotos);
+    }
+
+    private PhotosPage makePhotos() {
         Map<String, List<Media>> groups = new TreeMap<>();
         for (Media media : db.media().all()) {
             var group = photoGroup(media);
@@ -1177,8 +1188,12 @@ public final class Views {
         return ui.t(mime.equals("application/pdf") ? "media.kind.pdf" : "media.kind.file");
     }
 
-    /** All places as a tree under the places that are not within another. */
+    /** All places as a tree under the places that are not within another; the same on every request. */
     public PlacesPage places() {
+        return ui.page("places", this::makePlaces);
+    }
+
+    private PlacesPage makePlaces() {
         Map<String, String> names = new HashMap<>();
         Map<String, List<Place>> children = new HashMap<>();
         List<Place> roots = new ArrayList<>();
@@ -1231,8 +1246,12 @@ public final class Views {
         return nodes;
     }
 
-    /** All sources, alphabetically under letter headings. */
+    /** All sources, alphabetically under letter headings; the same on every request. */
     public SourcesPage sources() {
+        return ui.page("sources", this::makeSources);
+    }
+
+    private SourcesPage makeSources() {
         List<SourceEntry> entries = new ArrayList<>();
         for (Source source : db.sources().all()) {
             String title = source.title() == null || source.title().isBlank() ? ui.t("unknown") : source.title();
@@ -1586,6 +1605,11 @@ public final class Views {
         return DateMath.sortValue(event.date());
     }
 
+    /** A sort value that puts undated ones, whose value is 0, last. */
+    private static int undatedLast(int sortValue) {
+        return sortValue == 0 ? Integer.MAX_VALUE : sortValue;
+    }
+
     private EventRow event(Event event, EventRef ref, PersonLink partner, SourceCollector sources) {
         String type = ui.type("event", event.type());
         sources.add(event.citations(), type);
@@ -1791,16 +1815,5 @@ public final class Views {
                             sourceTitle(c), sourceUrl(c), c.page() == null ? "" : c.page(), String.join(", ", what)))));
             return uses;
         }
-    }
-
-    /** Number of visible people per surname group; the empty group holds people without a surname. */
-    private Map<String, Integer> surnameCounts() {
-        Map<String, Integer> counts = new TreeMap<>();
-        for (Person person : db.people().all()) {
-            if (!data.isLiving(person.handle()) && person.primaryName() != null) {
-                counts.merge(ui.order().group(person.primaryName()), 1, Integer::sum);
-            }
-        }
-        return counts;
     }
 }

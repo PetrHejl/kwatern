@@ -3,16 +3,17 @@ package me.hejl.kwatern.web;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import me.hejl.gramps.date.DateFormatter;
 import me.hejl.gramps.i18n.Messages;
 import me.hejl.gramps.model.Gender;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.GrampsDate;
-import me.hejl.gramps.model.NameFormat;
-import me.hejl.gramps.model.NameMap;
 import me.hejl.gramps.name.NameFormatter;
 import me.hejl.gramps.name.NameOrder;
-import me.hejl.gramps.place.Coordinates;
 import me.hejl.gramps.place.PlaceFormatter;
 
 /**
@@ -20,6 +21,9 @@ import me.hejl.gramps.place.PlaceFormatter;
  * names and places. Passed to every template as {@code ui}. Thread-safe.
  */
 public final class Ui {
+
+    // Characters of a Gramps type that message keys have as "_"; used for every type on every page.
+    private static final Pattern NOT_IN_KEYS = Pattern.compile("[^a-z0-9]+");
 
     private final Locale locale;
     private final Messages messages;
@@ -30,39 +34,24 @@ public final class Ui {
     private final Site.Options options;
     private final boolean hasMedia;
     private final boolean hasMap;
+    private final Map<String, Object> pages;
     private final Viewer viewer;
 
-    Ui(Locale locale, GrampsDatabase db, Site.Options options) {
-        this(
-                locale,
-                db.nameFormats(),
-                db.nameMaps(),
-                new PlaceFormatter(db, locale.getLanguage()),
-                options,
-                db.media().size() > 0,
-                options.map().enabled()
-                        && db.places().all().stream()
-                                .anyMatch(p -> Coordinates.parse(p.latitude(), p.longitude())
-                                        .isPresent()));
-    }
-
-    private Ui(
-            Locale locale,
-            List<NameFormat> nameFormats,
-            List<NameMap> nameMaps,
-            PlaceFormatter places,
-            Site.Options options,
-            boolean hasMedia,
-            boolean hasMap) {
+    /**
+     * @param hasMedia whether the tree has any media
+     * @param hasMap   whether maps are shown: turned on, and the tree has places with coordinates
+     */
+    Ui(Locale locale, GrampsDatabase db, Site.Options options, boolean hasMedia, boolean hasMap) {
         this.locale = locale;
         this.options = options;
         this.hasMedia = hasMedia;
         this.hasMap = hasMap;
         this.messages = Messages.load("me/hejl/kwatern/messages", locale);
         this.dates = new DateFormatter(locale);
-        this.names = new NameFormatter(nameFormats, NameFormatter.SURNAME_GIVEN, locale);
-        this.order = new NameOrder(locale, nameMaps);
-        this.places = places;
+        this.names = new NameFormatter(db.nameFormats(), NameFormatter.SURNAME_GIVEN, locale);
+        this.order = new NameOrder(locale, db.nameMaps());
+        this.places = new PlaceFormatter(db, locale.getLanguage());
+        this.pages = new ConcurrentHashMap<>();
         this.viewer = Viewer.OPEN;
     }
 
@@ -76,7 +65,27 @@ public final class Ui {
         this.names = ui.names;
         this.order = ui.order;
         this.places = ui.places;
+        this.pages = ui.pages;
         this.viewer = viewer;
+    }
+
+    /**
+     * A page that is the same on every request in this language and version of the tree, such as a listing of the
+     * whole tree: made on first request and kept. Only for pages with a fixed, small set of keys, as they are
+     * kept for good; the page model must not depend on who views it.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T page(String key, Supplier<T> make) {
+        Object page = pages.get(key);
+        if (page == null) {
+            // Two requests at once may both make it; both get the same.
+            Object made = make.get();
+            page = pages.putIfAbsent(key, made);
+            if (page == null) {
+                page = made;
+            }
+        }
+        return (T) page;
     }
 
     /** The same UI for one request's viewer; cheap, it shares everything else. */
@@ -184,7 +193,8 @@ public final class Ui {
         if (value == null || value.isBlank()) {
             return "";
         }
-        String key = kind + "." + value.strip().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_");
+        String key = kind + "."
+                + NOT_IN_KEYS.matcher(value.strip().toLowerCase(Locale.ROOT)).replaceAll("_");
         String translated = messages.find(key);
         return translated != null ? translated : value;
     }

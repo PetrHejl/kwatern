@@ -77,12 +77,20 @@ public final class MediaImages {
     /** What the header of a readable file says, and its format as recognised from the content. */
     private record Header(ImageInfo info, String mimeType) {}
 
-    private final Map<String, Optional<Header>> headers = new ConcurrentHashMap<>();
-    private final Map<String, FutureTask<Optional<byte[]>>> cache = new ConcurrentHashMap<>();
-    private final Map<String, byte[]> displayed = new LinkedHashMap<>(16, 0.75f, true);
-    private long displayedBytes;
-    // The larger images being made, until they are in the cache.
-    private final Map<String, FutureTask<Optional<byte[]>>> making = new ConcurrentHashMap<>();
+    /**
+     * What is read and made of the files, by media handle and version. It depends only on the media object and its
+     * file, never on the view, so the views of one version share it.
+     */
+    private static final class Store {
+        final Map<String, Optional<Header>> headers = new ConcurrentHashMap<>();
+        final Map<String, FutureTask<Optional<byte[]>>> cache = new ConcurrentHashMap<>();
+        final Map<String, byte[]> displayed = new LinkedHashMap<>(16, 0.75f, true);
+        long displayedBytes;
+        // The larger images being made, until they are in the cache.
+        final Map<String, FutureTask<Optional<byte[]>>> making = new ConcurrentHashMap<>();
+    }
+
+    private final Store store;
 
     /**
      * Media read only from the media directory.
@@ -92,7 +100,7 @@ public final class MediaImages {
      *     {@code mediaDir}, so that an export made on one computer works with the files copied to another
      */
     public MediaImages(GrampsDatabase db, Path mediaDir, String exportMediaPath, ImageDecoders decoders) {
-        this(db, mediaDir, exportMediaPath, false, false, decoders);
+        this(db, mediaDir, exportMediaPath, false, false, decoders, new Store());
     }
 
     private MediaImages(
@@ -101,13 +109,24 @@ public final class MediaImages {
             String exportMediaPath,
             boolean packaged,
             boolean anywhere,
-            ImageDecoders decoders) {
+            ImageDecoders decoders,
+            Store store) {
         this.db = db;
         this.mediaDir = mediaDir;
         this.exportMediaPath = exportMediaPath;
         this.packaged = packaged;
         this.anywhere = anywhere;
         this.decoders = decoders;
+        this.store = store;
+    }
+
+    /**
+     * The same files for another view of the same version of the tree, such as the public one of the members'
+     * view, sharing what has been made of them: images are made once for both. Only the media of that view's
+     * database can be reached through it.
+     */
+    public MediaImages forView(GrampsDatabase view) {
+        return new MediaImages(view, mediaDir, exportMediaPath, packaged, anywhere, decoders, store);
     }
 
     /**
@@ -116,7 +135,7 @@ public final class MediaImages {
      */
     public static MediaImages anywhere(
             GrampsDatabase db, Path mediaDir, String exportMediaPath, ImageDecoders decoders) {
-        return new MediaImages(db, mediaDir, exportMediaPath, false, true, decoders);
+        return new MediaImages(db, mediaDir, exportMediaPath, false, true, decoders, new Store());
     }
 
     /**
@@ -125,7 +144,7 @@ public final class MediaImages {
      * other files on this computer.
      */
     public static MediaImages ofPackage(GrampsDatabase db, Path directory, ImageDecoders decoders) {
-        return new MediaImages(db, directory, null, true, false, decoders);
+        return new MediaImages(db, directory, null, true, false, decoders, new Store());
     }
 
     /** No media at all. */
@@ -196,16 +215,21 @@ public final class MediaImages {
     }
 
     private Optional<Header> header(Media media) {
-        return headers.computeIfAbsent(
-                media.handle(),
-                handle -> file(media).flatMap(file -> {
-                    try (InputStream in = Files.newInputStream(file)) {
-                        var reader = decoders.open(in);
-                        return Optional.of(new Header(reader.info(), reader.mimeType()));
-                    } catch (IOException | RuntimeException e) {
-                        return Optional.empty();
-                    }
-                }));
+        Optional<Header> header = store.headers.get(media.handle());
+        if (header == null) {
+            // Read outside the map, whose computeIfAbsent would hold up other media while the file is read. Two
+            // requests at once may both read it.
+            header = file(media).flatMap(file -> {
+                try (InputStream in = Files.newInputStream(file)) {
+                    var reader = decoders.open(in);
+                    return Optional.of(new Header(reader.info(), reader.mimeType()));
+                } catch (IOException | RuntimeException e) {
+                    return Optional.empty();
+                }
+            });
+            store.headers.putIfAbsent(media.handle(), header);
+        }
+        return header;
     }
 
     /** Whether images can probably be made of a media file. */
@@ -324,12 +348,12 @@ public final class MediaImages {
                 made.ifPresent(bytes -> keepDisplayed(key, bytes));
                 return made;
             });
-            FutureTask<Optional<byte[]>> running = making.putIfAbsent(key, task);
+            FutureTask<Optional<byte[]>> running = store.making.putIfAbsent(key, task);
             if (running == null) {
                 try {
                     task.run();
                 } finally {
-                    making.remove(key, task);
+                    store.making.remove(key, task);
                 }
             } else {
                 task = running;
@@ -350,19 +374,19 @@ public final class MediaImages {
     }
 
     private byte[] displayed(String key) {
-        synchronized (displayed) {
-            return displayed.get(key);
+        synchronized (store.displayed) {
+            return store.displayed.get(key);
         }
     }
 
     private void keepDisplayed(String key, byte[] data) {
-        synchronized (displayed) {
-            if (displayed.put(key, data) == null) {
-                displayedBytes += data.length;
+        synchronized (store.displayed) {
+            if (store.displayed.put(key, data) == null) {
+                store.displayedBytes += data.length;
             }
-            var oldest = displayed.entrySet().iterator();
-            while (displayedBytes > DISPLAY_CACHE && oldest.hasNext()) {
-                displayedBytes -= oldest.next().getValue().length;
+            var oldest = store.displayed.entrySet().iterator();
+            while (store.displayedBytes > DISPLAY_CACHE && oldest.hasNext()) {
+                store.displayedBytes -= oldest.next().getValue().length;
                 oldest.remove();
             }
         }
@@ -379,7 +403,7 @@ public final class MediaImages {
         }
         String key = key(media, region, kind);
         FutureTask<Optional<byte[]>> task = new FutureTask<>(() -> make(media, region, kind));
-        FutureTask<Optional<byte[]>> existing = cache.putIfAbsent(key, task);
+        FutureTask<Optional<byte[]>> existing = store.cache.putIfAbsent(key, task);
         if (existing == null) {
             task.run();
         } else {
