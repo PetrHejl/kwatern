@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import me.hejl.gramps.i18n.Languages;
 import me.hejl.gramps.privacy.PublicDatabase;
 import me.hejl.kwatern.Version;
 import me.hejl.kwatern.view.SearchIndex;
@@ -111,12 +112,15 @@ public final class Site {
         return uis.computeIfAbsent(language, l -> new Ui(Locale.of(l), data.database(), options));
     }
 
-    /** The primary language subtag if it looks valid, else {@code null}; keeps the cache small. */
+    /**
+     * The primary language subtag if ICU knows the language, else {@code null}. Only those get a {@link Ui}, since
+     * each takes memory for good: any code that merely looks valid would let requests make thousands.
+     */
     private static String language(String tag) {
         if (tag == null || tag.isBlank() || tag.equals("*")) {
             return null;
         }
         String language = Locale.forLanguageTag(tag.strip()).getLanguage();
-        return language.matches("[a-z]{2,3}") ? language : null;
+        return Languages.known(language) ? language : null;
     }
 }

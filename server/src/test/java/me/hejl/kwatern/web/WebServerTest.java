@@ -2,6 +2,7 @@ package me.hejl.kwatern.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -11,6 +12,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.regex.Pattern;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Person;
@@ -121,6 +125,32 @@ class WebServerTest {
         assertEquals("cs", czech.headers().firstValue("Content-Language").orElseThrow());
         assertTrue(get("/surnames", "cs").body().contains(">CH</a>"), "Czech alphabet in the index");
         assertTrue(get("/person/I0044?lang=de", "cs").body().contains("<html lang=\"de\">"));
+    }
+
+    @Test
+    void makesPagesOnlyInLanguagesIcuKnows() throws Exception {
+        assertTrue(get("/?lang=fr", null).body().contains("<html lang=\"fr\">"), "ICU's dates, English words");
+        assertTrue(get("/?lang=qqq", "cs").body().contains("<html lang=\"cs\">"), "made-up code: the browser's");
+        assertTrue(get("/", "qqq, cs;q=0.5").body().contains("<html lang=\"cs\">"), "the next known one");
+
+        // Each language's UI is kept for good, so every code that looks valid must not make a new one.
+        var site = new Site(published, Site.Options.DEFAULT);
+        Ui english = site.ui(null, null);
+        assertSame(english, site.ui("qqq", null));
+        assertSame(english, site.ui(null, "qqq"));
+        Set<Ui> made = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (char a = 'a'; a <= 'z'; a++) {
+            for (char b = 'a'; b <= 'z'; b++) {
+                made.add(site.ui("" + a + b, null));
+                made.add(site.ui(null, "" + a + b));
+                for (char c = 'a'; c <= 'z'; c++) {
+                    made.add(site.ui("" + a + b + c, null));
+                    made.add(site.ui(null, "" + a + b + c));
+                }
+            }
+        }
+        // ICU knows about 250 languages; before, each of the 18,252 codes had its own.
+        assertTrue(made.size() < 300, made.size() + " UIs");
     }
 
     @Test
