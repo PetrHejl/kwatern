@@ -35,6 +35,10 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   (default `en`). Any language works: ICU supplies dates and the alphabet (e.g. a "CH" heading in Czech);
   words fall back to English where no `messages_<lang>.properties` exists.
 - **URLs** use Gramps IDs (`/person/I0044`), falling back to the handle for objects without one.
+- **Command line** (picocli, `Main`): the synopsis is written by hand (`kwatern [OPTIONS] EXPORT`), as the generated
+  one listed every option. A wrong argument prints only the error and "Try 'kwatern --help'", like git and
+  coreutils, and exits with 2. Enum options are read in any case and named in lower case in errors, as in the help.
+  `kwatern help [COMMAND]` works too.
 - **Security headers:** a strict Content Security Policy (no inline scripts or styles), `nosniff`,
   `same-origin` referrer. Only GET and HEAD are accepted.
 - **Memory (no built-in heap limit):** the native image's defaults already bound the heap: at most 80% of

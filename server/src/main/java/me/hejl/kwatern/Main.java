@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.Console;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -48,11 +49,14 @@ import me.hejl.kwatern.web.Sites;
 import me.hejl.kwatern.web.WebServer;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.HelpCommand;
+import picocli.CommandLine.ITypeConverter;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+import picocli.CommandLine.TypeConversionException;
 
 @Command(
         name = "kwatern",
@@ -60,7 +64,14 @@ import picocli.CommandLine.Spec;
         version = Site.PROGRAM,
         sortOptions = false,
         usageHelpAutoWidth = true,
-        subcommands = Main.Passwd.class,
+        // The generated synopsis lists every option, which the option list below shows anyway; later lines are
+        // indented under the first, after "Usage: ".
+        customSynopsis = {
+            "kwatern [OPTIONS] EXPORT",
+            "       kwatern passwd --users=FILE NAME",
+            "       kwatern help [COMMAND]",
+        },
+        subcommands = {Main.Passwd.class, HelpCommand.class},
         description = "Serves a Gramps XML export as a read-only web site.")
 public final class Main implements Callable<Integer> {
 
@@ -265,13 +276,41 @@ public final class Main implements Callable<Integer> {
     private boolean licenses;
 
     public static void main(String[] args) {
-        int exitCode = new CommandLine(new Main())
-                .setCaseInsensitiveEnumValuesAllowed(true)
-                .execute(args);
+        int exitCode = commandLine().execute(args);
         // On success the HTTP server's threads keep the process running.
         if (exitCode != 0) {
             System.exit(exitCode);
         }
+    }
+
+    static CommandLine commandLine() {
+        return new CommandLine(new Main())
+                .registerConverter(Visibility.class, lowerCase(Visibility.class))
+                .registerConverter(Toggle.class, lowerCase(Toggle.class))
+                .registerConverter(Theme.class, lowerCase(Theme.class))
+                .registerConverter(Login.Access.class, lowerCase(Login.Access.class))
+                .setParameterExceptionHandler(Main::invalidInput);
+    }
+
+    /** Reads enum values in any case and names them in lower case, as the help does, when one is wrong. */
+    private static <E extends Enum<E>> ITypeConverter<E> lowerCase(Class<E> type) {
+        return value -> Arrays.stream(type.getEnumConstants())
+                .filter(e -> e.name().equalsIgnoreCase(value))
+                .findFirst()
+                .orElseThrow(() -> new TypeConversionException(Arrays.stream(type.getEnumConstants())
+                        .map(e -> e.name().toLowerCase(Locale.ROOT))
+                        .collect(Collectors.joining(", ", "expected one of ", " but was '" + value + "'"))));
+    }
+
+    // The error and where to find help, like git and coreutils; the whole help would push the error off the screen.
+    private static int invalidInput(ParameterException e, String[] args) {
+        CommandLine command = e.getCommandLine();
+        PrintWriter err = command.getErr();
+        err.println(command.getColorScheme().errorText(e.getMessage()));
+        err.printf(
+                "Try '%s --help' for more information.%n",
+                command.getCommandSpec().qualifiedName());
+        return command.getCommandSpec().exitCodeOnInvalidInput();
     }
 
     @Override
