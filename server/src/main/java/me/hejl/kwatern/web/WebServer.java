@@ -172,11 +172,34 @@ public final class WebServer {
             try {
                 route(site, exchange, path, ui);
             } catch (RuntimeException e) {
-                System.err.println("Error serving " + path + ": " + e);
-                e.printStackTrace();
+                System.err.print(errorLog(path, e));
                 page(exchange, ui, 500, "error.jte", Map.of("message", ui.t("error.server")));
             }
         }
+    }
+
+    /**
+     * What to log about an error while serving a page: the kind of page, and where the error happened. The rest of
+     * the path and the exceptions' messages are left out, as they may hold data of the tree, such as a surname or
+     * a date, which logs must not.
+     */
+    static String errorLog(String path, Throwable error) {
+        String[] parts = path.split("/", 3);
+        var log = new StringBuilder("Error serving /")
+                .append(parts.length > 1 ? parts[1] : "")
+                .append(parts.length > 2 ? "/..." : "")
+                .append(": ");
+        Throwable t = error;
+        // A few causes are enough, and a cycle of them must not loop.
+        for (int depth = 0; t != null && depth < 5; depth++, t = t.getCause()) {
+            log.append(depth == 0 ? "" : "Caused by: ")
+                    .append(t.getClass().getName())
+                    .append('\n');
+            for (StackTraceElement frame : t.getStackTrace()) {
+                log.append("\tat ").append(frame).append('\n');
+            }
+        }
+        return log.toString();
     }
 
     private static Ui ui(Site site, HttpExchange exchange) {

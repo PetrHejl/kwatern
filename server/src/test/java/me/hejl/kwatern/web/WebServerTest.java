@@ -117,6 +117,18 @@ class WebServerTest {
     }
 
     @Test
+    void logsErrorsWithoutDataOfTheTree() {
+        var error = new IllegalStateException(
+                "no name for Novák", new NumberFormatException("For input string: \"1850?\""));
+        String log = WebServer.errorLog("/surname/Novák", error);
+        assertTrue(log.startsWith("Error serving /surname/...: java.lang.IllegalStateException\n"), log);
+        assertTrue(log.contains("Caused by: java.lang.NumberFormatException\n"), log);
+        assertTrue(log.contains("\tat me.hejl.kwatern.web.WebServerTest.logsErrorsWithoutDataOfTheTree"), log);
+        assertFalse(log.contains("Novák") || log.contains("1850"), log);
+        assertTrue(WebServer.errorLog("/", error).startsWith("Error serving /: "));
+    }
+
+    @Test
     void speaksTheBrowsersLanguage() throws Exception {
         var czech = get("/person/I0044", "cs-CZ,cs;q=0.9,en;q=0.8");
         assertTrue(czech.body().contains("<html lang=\"cs\">"));

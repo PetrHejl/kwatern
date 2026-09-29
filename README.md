@@ -151,6 +151,10 @@ kwatern tree.gramps --access=members --users users.txt --secret-file session.key
 Removing a member's line from `users.txt` signs them out; the file is read again when it changes. Without
 `--secret-file` members sign in again after each restart.
 
+Signing out ends the session in that browser only. To end a member's sessions everywhere, for example after a
+lost phone, set a new password with `kwatern passwd`. To sign everyone out, delete the `--secret-file` and
+restart the server, which then makes a new key.
+
 Passwords must not travel over plain HTTP. Put a reverse proxy with HTTPS in front of the server, such as
 Caddy (`reverse_proxy 127.0.0.1:8080`) or nginx, keep the server on `127.0.0.1` and use `--behind-proxy`, so
 that the visitor's address and HTTPS are taken from the proxy's `X-Forwarded-*` headers. The server refuses to

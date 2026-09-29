@@ -876,7 +876,8 @@ final class GrampsXmlParser {
     }
 
     private GrampsDate invalidDate(String text) {
-        warn("Unparseable date value \"" + text + "\" kept as text");
+        // Without the value: warnings are printed, and a date may be a living person's birthday.
+        warn("Unparseable date value kept as text");
         return GrampsDate.textOnly(text);
     }
 

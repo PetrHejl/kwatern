@@ -206,6 +206,21 @@ class AuthTest {
     }
 
     @Test
+    void limitsAttemptsInFlightInAll() {
+        var attempts = new Attempts(new TestClock());
+        // Each from its own address for its own name, so that only the limit in all applies.
+        for (int i = 0; i < Attempts.MAX_IN_FLIGHT; i++) {
+            assertEquals(Duration.ZERO, attempts.start("10.0.1." + i, "name" + i));
+        }
+        assertEquals(Attempts.BUSY_WAIT, attempts.start("10.0.2.1", "other"));
+        attempts.failed("10.0.1.0", "name0");
+        assertEquals(Duration.ZERO, attempts.start("10.0.2.1", "other"), "an ended attempt frees its place");
+        assertEquals(Attempts.BUSY_WAIT, attempts.start("10.0.2.2", "another"));
+        attempts.succeeded("10.0.1.1", "name1");
+        assertEquals(Duration.ZERO, attempts.start("10.0.2.2", "another"), "a successful one too");
+    }
+
+    @Test
     void checksNoMoreGuessesSentAtOnceThanAreFree() throws Exception {
         var login = new Login(
                 Login.Access.MEMBERS,
