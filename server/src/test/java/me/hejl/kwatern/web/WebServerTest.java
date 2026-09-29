@@ -132,9 +132,9 @@ class WebServerTest {
 
     @Test
     void logsOnlyAddressCharactersOfAnAddress() {
-        assertEquals("192.0.2.1", WebServer.printable("192.0.2.1"));
-        assertEquals("fe80::1%eth0", WebServer.printable("fe80::1%eth0"));
-        assertEquals("1.2.3.4?sign-in:?ok?from?x", WebServer.printable("1.2.3.4\nsign-in: ok from x"));
+        assertEquals("192.0.2.1", SignIn.printable("192.0.2.1"));
+        assertEquals("fe80::1%eth0", SignIn.printable("fe80::1%eth0"));
+        assertEquals("1.2.3.4?sign-in:?ok?from?x", SignIn.printable("1.2.3.4\nsign-in: ok from x"));
     }
 
     @Test

@@ -45,7 +45,10 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   coreutils, and exits with 2. Enum options are read in any case and named in lower case in errors, as in the help.
   `kwatern help [COMMAND]` works too.
 - **Security headers:** a strict Content Security Policy (no inline scripts or styles), `nosniff`,
-  `same-origin` referrer. Only GET and HEAD are accepted.
+  `same-origin` referrer. Only GET and HEAD are accepted. Every response and its headers go through
+  `web/Responses`, so that they can be reviewed in one place. `WebServer` takes a request to its version and
+  viewer and hands it to `SignIn`, `StaticFiles`, `MediaFiles` or `PageRoutes`, a table of the pages by the first
+  part of their address; until 2026-09-29 it was one class of 750 lines.
 - **Memory (no built-in heap limit):** the native image's defaults already bound the heap: at most 80% of
   physical memory (or of a container's limit), the young generation 10% of that. Measured 2026-09-28 on the
   example tree with `-XX:MaxRAM=1g` (a 1 GB VPS): 100 MB at start, levelling off at 218 MB after 30 reloads
