@@ -281,7 +281,10 @@ In the server (`web/MediaImages`):
 - **Logs** name only the media ID when an image cannot be made, since file names often contain names.
   Likewise an error while serving a page logs only the kind of page (`/surname/...`) and the exceptions' types
   and stack traces, not the rest of the path or their messages, and a date the parser cannot read is counted in
-  the warnings but not quoted.
+  the warnings but not quoted. An export that cannot be loaded, at start or on reload, is reported with the
+  parse error's line and column or else only the exception's type: the XML parser's messages quote the text, and
+  those about files name media paths. Failed and refused sign-ins log the address (for tools such as fail2ban),
+  never the name typed, which may be a password.
 
 Native binary on the real export: all 582 readable media files (one is the GIF) give thumbnails in 36 s when
 requested one after another, the same speed as on the JVM; from the cache they take 5 ms each. Memory went from

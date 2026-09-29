@@ -49,7 +49,7 @@ public final class GrampsPackage {
                 }
             }
         }
-        throw new IOException("No " + DATA + " in the package " + file.getFileName());
+        throw new GrampsParseException("No " + DATA + " in the package " + file.getFileName());
     }
 
     /**

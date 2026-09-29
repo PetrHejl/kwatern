@@ -77,6 +77,18 @@ class MainTest {
     }
 
     @Test
+    void exportThatCannotBeLoadedIsNamedWithoutQuotingIt(@TempDir Path directory) throws IOException {
+        Path file = Files.writeString(directory.resolve("tree.gramps"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <database xmlns="http://gramps-project.org/xml/1.7.2/"><people><person><name><first>&Novak;</first>
+                """);
+        Run run = run("--check", file.toString());
+        assertEquals(1, run.exitCode());
+        assertTrue(run.err().startsWith("cannot load tree.gramps: Malformed Gramps XML at line 2, column "), run.err());
+        assertFalse(run.err().contains("Novak") || run.err().contains("\tat "), run.err());
+    }
+
+    @Test
     void tellsWhetherOthersCanReadAFile(@TempDir Path directory) throws IOException {
         assumeTrue(directory.getFileSystem().supportedFileAttributeViews().contains("posix"));
         Path file = Files.writeString(directory.resolve("secret"), "key");

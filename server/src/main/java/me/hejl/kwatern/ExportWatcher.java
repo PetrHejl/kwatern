@@ -75,8 +75,8 @@ final class ExportWatcher implements AutoCloseable {
                 seen = now;
             }
         } catch (RuntimeException e) {
-            // A failing listener must not stop the checks.
-            System.err.println("Reloading failed: " + e);
+            // A failing listener must not stop the checks. Its type only, as the message may quote the tree.
+            System.err.println("Reloading failed: " + e.getClass().getSimpleName());
         }
     }
 

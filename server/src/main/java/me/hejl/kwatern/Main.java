@@ -38,6 +38,7 @@ import me.hejl.gramps.privacy.PrivacyOptions;
 import me.hejl.gramps.privacy.ProbablyAlive;
 import me.hejl.gramps.privacy.PublicDatabase;
 import me.hejl.gramps.xml.GrampsPackage;
+import me.hejl.gramps.xml.GrampsParseException;
 import me.hejl.gramps.xml.GrampsXml;
 import me.hejl.gramps.xml.ParseResult;
 import me.hejl.image.ImageDecoders;
@@ -298,7 +299,8 @@ public final class Main implements Callable<Integer> {
                 .registerConverter(Toggle.class, lowerCase(Toggle.class))
                 .registerConverter(Theme.class, lowerCase(Theme.class))
                 .registerConverter(Login.Access.class, lowerCase(Login.Access.class))
-                .setParameterExceptionHandler(Main::invalidInput);
+                .setParameterExceptionHandler(Main::invalidInput)
+                .setExecutionExceptionHandler(Main::failed);
     }
 
     /** Reads enum values in any case and names them in lower case, as the help does, when one is wrong. */
@@ -320,6 +322,15 @@ public final class Main implements Callable<Integer> {
                 "Try '%s --help' for more information.%n",
                 command.getCommandSpec().qualifiedName());
         return command.getCommandSpec().exitCodeOnInvalidInput();
+    }
+
+    // Only the message of an export that cannot be loaded: a stack trace would add the messages of its causes.
+    private static int failed(Exception e, CommandLine command, CommandLine.ParseResult parseResult) throws Exception {
+        if (!(e instanceof LoadException)) {
+            throw e;
+        }
+        command.getErr().println(command.getColorScheme().errorText(e.getMessage()));
+        return command.getCommandSpec().exitCodeOnExecutionException();
     }
 
     @Override
@@ -371,6 +382,22 @@ public final class Main implements Callable<Integer> {
 
     /** A loaded export ready to serve, and the directory its package was extracted to, if it is one. */
     private record Loaded(Sites sites, Path extracted) {}
+
+    /**
+     * The export could not be loaded. The message says why without quoting the export: its file names and contents
+     * hold data of the tree, and so may the messages of exceptions about them. Only a parse error's message, which
+     * says where and not what, is kept; otherwise the exception's type.
+     */
+    static final class LoadException extends IOException {
+        LoadException(Path file, Exception cause) {
+            super(
+                    "cannot load " + file.getFileName() + ": "
+                            + (cause instanceof GrampsParseException
+                                    ? cause.getMessage()
+                                    : cause.getClass().getSimpleName()),
+                    cause);
+        }
+    }
 
     // The directory the media of the package being served were extracted to, removed when replaced or on exit.
     private volatile Path extracted;
@@ -432,8 +459,18 @@ public final class Main implements Callable<Integer> {
         }
     }
 
-    /** Reads the export, applies the privacy filter for each view and prepares their media, printing a summary. */
     private Loaded load() throws IOException {
+        try {
+            return read();
+        } catch (ParameterException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw new LoadException(file, e);
+        }
+    }
+
+    /** Reads the export, applies the privacy filter for each view and prepares their media, printing a summary. */
+    private Loaded read() throws IOException {
         long start = System.nanoTime();
         boolean isPackage = GrampsPackage.isPackage(file);
         ParseResult result = isPackage ? GrampsPackage.read(file) : GrampsXml.read(file);
@@ -521,8 +558,11 @@ public final class Main implements Callable<Integer> {
                 deleteTree(previous);
             }
             System.out.println("reload: serving the new version");
+        } catch (LoadException e) {
+            System.err.println("reload: " + e.getMessage() + ", keeping the previous version");
         } catch (IOException | RuntimeException e) {
-            System.err.println("reload: cannot load " + file.getFileName() + ", keeping the previous version: " + e);
+            System.err.println("reload: cannot serve the new version, keeping the previous one: "
+                    + e.getClass().getSimpleName());
         }
     }
 
