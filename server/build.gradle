@@ -134,3 +134,23 @@ graalvmNative {
         }
     }
 }
+
+// Fingerprints of every page of a tree, as the server sends them (PageSnapshot), to show that a change leaves the
+// site as it was: run it on the old code with -PpagesDir=DIR, then on the new one with -PcompareWith=DIR, which
+// fails if any page differs. The example tree unless -PgrampsFile is given.
+tasks.register('pages', JavaExec) {
+    description = 'Fingerprints every page of a tree, and compares with an earlier run given by -PcompareWith.'
+    dependsOn ':downloadTestData'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'me.hejl.kwatern.PageSnapshot'
+    def tree = providers.gradleProperty('grampsFile')
+            .orElse(rootProject.layout.buildDirectory.file('test-data/example.gramps').map { it.asFile.path })
+    def output = providers.gradleProperty('pagesDir')
+            .orElse(layout.buildDirectory.dir('pages').map { it.asFile.path })
+    def compareWith = providers.gradleProperty('compareWith')
+    argumentProviders.add({
+        [tree.get(), output.get()] + (compareWith.isPresent() ? [compareWith.get()] : [])
+    } as CommandLineArgumentProvider)
+    // Always runs: its output is the point, not a file for other tasks.
+    outputs.upToDateWhen { false }
+}

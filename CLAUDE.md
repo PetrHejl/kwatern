@@ -29,13 +29,19 @@ decisions or finding something worth remembering.
 JDK 25 is required, GraalVM 25 for native builds:
 
 ```sh
-export JAVA_HOME=~/.sdkman/candidates/java/25.0.2-graalce GRAALVM_HOME=$JAVA_HOME
+export JAVA_HOME=~/.sdkman/candidates/java/25.0.2-graalce; export GRAALVM_HOME=$JAVA_HOME
 ./gradlew test                                   # downloads the Gramps example tree on first run
 ./gradlew test -PgrampsFile=/path/to/tree.gramps # also runs the checks against a real export
 ./gradlew nativeTest                             # the same tests compiled into native executables (slow)
 ./gradlew :server:nativeCompile
 server/build/native/nativeCompile/kwatern --check /path/to/tree.gramps
+./gradlew :server:pages -PpagesDir=/tmp/pages    # fingerprints of every page, e.g. on main (37 s)
+./gradlew :server:pages -PcompareWith=/tmp/pages # the same on a branch, failing if any page differs
 ```
+
+A change that should not alter the site, such as a refactoring, is checked with `:server:pages`: it requests every
+page, image and file of the example tree (or `-PgrampsFile`) in every language with page texts, public and with
+everything shown, and compares status, headers and body with a snapshot made on `main`.
 
 After changing anything that may use reflection or resources (new library, ICU features, resource
 files), run `./gradlew nativeTest`; the JVM tests do not catch missing Native Image configuration. The same goes
