@@ -191,10 +191,7 @@ final class PlaceViews extends ViewPart {
         for (Event event : events) {
             for (PrimaryObject referrer : db.referrers(event.handle())) {
                 List<String> handles = switch (referrer) {
-                    case Person p
-                    when p.eventRefs().stream()
-                            .anyMatch(r -> event.handle().equals(r.event()) && "Primary".equals(r.role())) ->
-                        List.of(p.handle());
+                    case Person p when primaryIn(p, event) -> List.of(p.handle());
                     case Family f ->
                         Stream.of(f.father(), f.mother())
                                 .filter(Objects::nonNull)

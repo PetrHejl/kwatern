@@ -83,7 +83,7 @@ requests of their person pages.
 | Runs as | 1 process | 1 process | 3 containers: 8 web workers, Celery with 2 processes, Valkey | 3 containers: 2 web workers, Celery with 1 process, Valkey |
 | Memory, idle | 101 MB | 67 MB | 1.7 GB | 570 MB |
 | Memory, after browsing | 152 MB | 57 MB | 1.8 GB | 600 MB |
-| Program size | 47 MB binary | 47 MB binary | 4.7 GB image | 4.7 GB image |
+| Program size | 52 MB binary | 52 MB binary | 4.7 GB image | 4.7 GB image |
 
 Kwatern loads the tree in about 150 ms. On a real export of 356 people and 598 photos it serves in 80 MB.
 The memory is the resident set of the process for Kwatern and the sum of `docker stats` of the three containers

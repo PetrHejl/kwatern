@@ -1,6 +1,7 @@
 package me.hejl.gramps.date;
 
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import me.hejl.gramps.model.DateValue;
@@ -85,7 +86,7 @@ public final class DateMath {
         if (newYear == null) {
             return null;
         }
-        return switch (newYear.strip().toLowerCase()) {
+        return switch (newYear.strip().toLowerCase(Locale.ROOT)) {
             case "", "jan1" -> null;
             case "mar1" -> new int[] {3, 1};
             case "mar25" -> new int[] {3, 25};

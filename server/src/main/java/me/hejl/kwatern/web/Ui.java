@@ -126,19 +126,18 @@ public final class Ui {
         return messages.find(specific) != null ? messages.format(specific, args) : messages.format(key, args);
     }
 
-    /** Joins the non-empty parts with " · ", for compact lines such as "Wife · 1852–1921". */
     /** The parts that are not empty, for templates that lay them out one by one. */
     public List<String> parts(String... parts) {
         return Arrays.stream(parts).filter(p -> p != null && !p.isEmpty()).toList();
     }
 
+    /** Joins the non-empty parts with " · ", for compact lines such as "Wife · 1852–1921". */
     public String join(String... parts) {
         return String.join(
                 " · ",
                 Arrays.stream(parts).filter(p -> p != null && !p.isEmpty()).toList());
     }
 
-    /** Whether people are marked by gender with colour; see {@code --gender-colours}. */
     /** Whether the tree has any media, for the Photos link in the header. */
     public boolean hasMedia() {
         return hasMedia;
@@ -158,6 +157,7 @@ public final class Ui {
         return options.map();
     }
 
+    /** Whether people are marked by gender with colour; see {@code --gender-colours}. */
     public boolean genderColours() {
         return options.genderColours();
     }

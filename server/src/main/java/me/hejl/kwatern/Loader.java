@@ -146,10 +146,16 @@ final class Loader {
                     ? sites.members().images().outsideMediaDir()
                     : sites.everyone().images().outsideMediaDir();
             if (outside > 0) {
+                // The media path an export sets is not printed: it may hold a name, as in /home/novak/Family tree.
+                String where = settings.mediaDir() != null
+                        ? settings.mediaDir().toString()
+                        : exportMediaPath == null || exportMediaPath.isBlank()
+                                ? mediaDir(exportMediaPath).toString()
+                                : "that the export sets";
                 System.err.printf(
                         "WARNING: %d published media files are outside the media directory %s and are not served;"
                                 + " see --media-dir and --allow-media-anywhere%n",
-                        outside, mediaDir(exportMediaPath));
+                        outside, where);
             }
             Path media = directory;
             return new Version(sites, media == null ? () -> {} : () -> remove(media));

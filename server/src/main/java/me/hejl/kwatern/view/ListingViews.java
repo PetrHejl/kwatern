@@ -113,12 +113,7 @@ final class ListingViews extends ViewPart {
                         tiles(c.media())))
                 .toList();
         return new SourcePage(
-                source.title() == null || source.title().isBlank() ? ui.t("unknown") : source.title(),
-                details,
-                repositories,
-                notes(source.notes()),
-                citations,
-                tiles(source.media()));
+                sourceTitle(source), details, repositories, notes(source.notes()), citations, tiles(source.media()));
     }
 
     /** All sources, alphabetically under letter headings; the same on every request. */
@@ -129,7 +124,7 @@ final class ListingViews extends ViewPart {
     private SourcesPage makeSources() {
         List<SourceEntry> entries = new ArrayList<>();
         for (Source source : db.sources().all()) {
-            String title = source.title() == null || source.title().isBlank() ? ui.t("unknown") : source.title();
+            String title = sourceTitle(source);
             int citations = (int) db.referrers(source.handle()).stream()
                     .filter(Citation.class::isInstance)
                     .count();

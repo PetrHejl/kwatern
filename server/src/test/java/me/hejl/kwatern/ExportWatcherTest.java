@@ -41,6 +41,20 @@ class ExportWatcherTest {
     }
 
     @Test
+    void reportsAChangeMadeWhileTheFileWasFirstLoaded() throws Exception {
+        Path file = temp.resolve("tree.gramps");
+        touch(file, "first", 0);
+        var watcher = ExportWatcher.of(file);
+        // Replaced while the server was loading it: before, the new version was taken for the one loaded.
+        touch(file, "second, longer", 5);
+        var changes = new LinkedBlockingQueue<Path>();
+        try (watcher) {
+            watcher.start(Duration.ofMillis(40), changes::add);
+            assertEquals(file, changes.poll(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
     void waitsWhileTheFileIsBeingWritten() throws Exception {
         Path file = temp.resolve("tree.gramps");
         touch(file, "x", 0);

@@ -234,7 +234,8 @@ takes 14 s. One file named `.jpg` is a GIF, so formats must be recognised by the
 In the server (`web/MediaImages`):
 
 - **Formats** are chosen by the first bytes of the file (`ImageDecoders`), through a small `ImageDecoder`
-  interface, so another implementation can replace or join ours by passing a different list. JPEG only for now.
+  interface, so another implementation can replace or join ours by passing a different list. JPEG, PNG and GIF
+  (`ImageDecoders.DEFAULT`).
 - **Photos on pages** (chosen from the mockups on 2026-09-28): a "Photos" card in the main column of person,
   family and place pages, on person and family pages as one compact row above the timeline (real timelines are long and
   pushed a card below them out of sight; chosen over a full card above it on 2026-09-28): four 120 px
@@ -257,8 +258,8 @@ In the server (`web/MediaImages`):
   cannot be reached. Responses carry an ETag, and `Cache-Control` allows caching for an hour.
 - **Portrait:** the first media reference of a person, as in Gramps, cropped to its region and widened to a
   square around it. Regions are taken to refer to the image as displayed (after EXIF rotation). Pages show
-  the portrait only when the file exists and starts like a JPEG, so they never show broken images; otherwise
-  the initials remain.
+  the portrait only when the file exists and its header can be decoded, so they never show broken images;
+  otherwise the initials remain.
 - **Cache:** made on first request, at most two at a time in the whole process. Until 2026-09-29 the limit was per
   view, so with a login, and while a new version was being loaded, four or more large images could be decoded at
   once (up to 64 MB of coefficients each). The images are made once for both views: they depend only on the media
@@ -560,4 +561,4 @@ ancestor, fan chart, descendant and map pages), and the same with `-Xmx96m`. Gra
 after the person and timeline API requests of 300 people, with the default 8 web workers and 2 Celery
 processes, and tuned to 2 and 1. Starting its stock compose file for the first time made both the web and the Celery
 container create a tree named "Gramps Web"; starting the web container first avoids that. The binary is 45 MB
-without the image decoders, 47 MB with them.
+without the image decoders, 47 MB with them, 52 MB with ICU's names of languages and regions (2026-09-29).
