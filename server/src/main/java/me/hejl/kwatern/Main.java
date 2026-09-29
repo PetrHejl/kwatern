@@ -437,7 +437,7 @@ public final class Main implements Callable<Integer> {
                             published,
                             siteOptions(),
                             isPackage
-                                    ? new MediaImages(published.database(), media, null, ImageDecoders.DEFAULT)
+                                    ? MediaImages.ofPackage(published.database(), media, ImageDecoders.DEFAULT)
                                     : new MediaImages(
                                             published.database(),
                                             mediaDir(exportMediaPath),
