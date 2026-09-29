@@ -24,6 +24,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import me.hejl.gramps.date.DateFormatter;
+import me.hejl.gramps.i18n.Languages;
 import me.hejl.gramps.i18n.Numbers;
 import me.hejl.gramps.model.DateValue;
 import me.hejl.gramps.model.GrampsCalendar;
@@ -801,6 +802,8 @@ public final class Main implements Callable<Integer> {
                 .append(" | cs ")
                 .append(Numbers.decimal(39.0483, 4, Locale.of("cs")))
                 .append("\n");
+        // Pages are made only in these; with none, every visitor would get --language.
+        sb.append("page languages: ").append(Languages.count()).append(" with ICU locale data\n");
         return sb.toString();
     }
 }

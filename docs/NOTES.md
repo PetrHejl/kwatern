@@ -34,6 +34,9 @@ Decisions, known differences from Gramps, and open items. Keep this file current
 - **Page language:** `?lang=` if given, else the browser's `Accept-Language`, else `--language`
   (default `en`). Any language works: ICU supplies dates and the alphabet (e.g. a "CH" heading in Czech);
   words fall back to English where no `messages_<lang>.properties` exists.
+  - Only languages ICU has locale data for (about 250) are used; other codes are skipped as if not asked for.
+    Each language's `Ui` (texts, formatters, collator) is kept for good, and every code that looked valid used
+    to get one: all two- and three-letter codes took the native binary from 110 MB to 960 MB in 15 s.
 - **URLs** use Gramps IDs (`/person/I0044`), falling back to the handle for objects without one.
 - **Command line** (picocli, `Main`): the synopsis is written by hand (`kwatern [OPTIONS] EXPORT`), as the generated
   one listed every option. A wrong argument prints only the error and "Try 'kwatern --help'", like git and
