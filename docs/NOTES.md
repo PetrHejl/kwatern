@@ -256,6 +256,15 @@ In the server (`web/MediaImages`):
 - **Files:** `--media-dir` sets where they are; by default the export's media path (with `~` expanded), else
   the export's directory. Absolute paths under the export's media path are also looked for under
   `--media-dir`, so the files can be copied to a server with the export unchanged.
+- **Only files in the media directory** are served, since an export can name any file and may come from someone
+  else: an absolute path or `../` in it served any file the server could read, e.g. under
+  `/media/{id}/original` with a PDF type. Media elsewhere are skipped with a warning at start; your own tree
+  with media all over the disk needs `--allow-media-anywhere`. Without `--media-dir`, the export's own media path
+  is the media directory, so for an export from someone else set `--media-dir`.
+- **Originals are checked by content:** a file is served as it is only if it decodes as an image, or begins as
+  the type Gramps recorded does (`%PDF-` in the first kilobyte, the PNG, GIF, WebP, AVIF, BMP or TIFF
+  signature). So even a file the export may name, e.g. with `--allow-media-anywhere` or a media path of `/`,
+  is never served when it is a key, settings or other text.
 - **Logs** name only the media ID when an image cannot be made, since file names often contain names.
 
 Native binary on the real export: all 582 readable media files (one is the GIF) give thumbnails in 36 s when

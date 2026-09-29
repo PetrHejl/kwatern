@@ -1,6 +1,7 @@
 package me.hejl.kwatern.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class MediaImagesTest {
+
+    private static final String PDF = "%PDF-1.7\n";
 
     @TempDir
     Path temp;
@@ -44,13 +47,16 @@ class MediaImagesTest {
         return images.original(media).map(MediaImages.Original::file);
     }
 
+    private Path file(Path path, String content) throws IOException {
+        Files.createDirectories(path.getParent());
+        return Files.writeString(path, content, StandardCharsets.ISO_8859_1);
+    }
+
     @Test
     void readsThePackagesMediaOnlyWhereItWasExtracted() throws IOException {
-        Path extracted = Files.createDirectories(temp.resolve("extracted"));
-        Path scan = Files.createDirectories(extracted.resolve("scans")).resolve("letter.pdf");
-        Files.writeString(scan, "scan");
-        Path outside = temp.resolve("secret.pdf");
-        Files.writeString(outside, "not in the package");
+        Path extracted = temp.resolve("extracted");
+        Path scan = file(extracted.resolve("scans/letter.pdf"), PDF);
+        Path outside = file(temp.resolve("secret.pdf"), PDF);
         GrampsDatabase db = tree("scans/letter.pdf", "/scans/letter.pdf", outside.toString(), "../secret.pdf");
 
         var images = MediaImages.ofPackage(db, extracted, ImageDecoders.DEFAULT);
@@ -58,9 +64,78 @@ class MediaImagesTest {
         assertEquals(Optional.of(scan), original(images, db, "O1"), "a leading slash, as extraction ignores it");
         assertEquals(Optional.empty(), original(images, db, "O2"), "an absolute path outside the package");
         assertEquals(Optional.empty(), original(images, db, "O3"), "a relative path leading out");
+    }
 
-        // A plain export is the operator's own, and Gramps allows media anywhere.
-        var own = new MediaImages(db, extracted, null, ImageDecoders.DEFAULT);
-        assertTrue(original(own, db, "O2").isPresent());
+    @Test
+    void readsAnExportsMediaOnlyFromTheMediaDirectoryUnlessAllowedAnywhere() throws IOException {
+        Path media = temp.resolve("media");
+        Path scan = file(media.resolve("scans/letter.pdf"), PDF);
+        Path outside = file(temp.resolve("secret.pdf"), PDF);
+        GrampsDatabase db = tree("scans/letter.pdf", scan.toString(), outside.toString(), "../secret.pdf");
+
+        var images = new MediaImages(db, media, null, ImageDecoders.DEFAULT);
+        assertEquals(Optional.of(scan), original(images, db, "O0"));
+        assertEquals(Optional.of(scan), original(images, db, "O1"), "an absolute path in the media directory");
+        assertEquals(Optional.empty(), original(images, db, "O2"), "an absolute path outside");
+        assertEquals(Optional.empty(), original(images, db, "O3"), "a relative path leading out");
+        assertEquals(2, images.outsideMediaDir());
+
+        // Your own tree with media all over the disk, as Gramps allows.
+        var anywhere = MediaImages.anywhere(db, media, null, ImageDecoders.DEFAULT);
+        assertEquals(Optional.of(outside), original(anywhere, db, "O2"));
+        assertEquals(
+                Optional.of(outside.toAbsolutePath()),
+                original(anywhere, db, "O3").map(Path::normalize));
+        assertEquals(0, anywhere.outsideMediaDir());
+    }
+
+    @Test
+    void looksForMediaUnderTheExportsMediaPathInTheMediaDirectory() throws IOException {
+        // The export was made with its media in "old"; they have been copied to "new", and "old" still exists.
+        Path old = file(temp.resolve("old/scan.pdf"), PDF);
+        Path copied = file(temp.resolve("new/scan.pdf"), PDF);
+        GrampsDatabase db = tree(old.toString());
+        String exportMediaPath = temp.resolve("old").toString();
+
+        var images = new MediaImages(db, temp.resolve("new"), exportMediaPath, ImageDecoders.DEFAULT);
+        assertEquals(Optional.of(copied), original(images, db, "O0"), "only the media directory is read");
+        var anywhere = MediaImages.anywhere(db, temp.resolve("new"), exportMediaPath, ImageDecoders.DEFAULT);
+        assertEquals(Optional.of(old), original(anywhere, db, "O0"), "where the export says, while it exists");
+    }
+
+    @Test
+    void servesAFileOnlyIfItsContentIsOfItsType() throws IOException {
+        Path media = temp.resolve("media");
+        file(media.resolve("key.pdf"), "-----BEGIN OPENSSH PRIVATE KEY-----\n");
+        GrampsDatabase db = tree("key.pdf");
+        assertEquals(
+                Optional.empty(), original(MediaImages.anywhere(db, media, null, ImageDecoders.DEFAULT), db, "O0"));
+
+        String[][] good = {
+            {"application/pdf", "%PDF-1.4\n"},
+            {"application/pdf", "junk before the header %PDF-1.4\n"},
+            {"image/png", "\u0089PNG\r\n\u001a\n...."},
+            {"image/gif", "GIF89a...."},
+            {"image/webp", "RIFF\0\0\0\0WEBPVP8 "},
+            {"image/avif", "\0\0\0\u0018ftypavif\0\0\0\0mif1"},
+            {"image/avif", "\0\0\0\u001cftypmif1\0\0\0\0miafavif"},
+            {"image/tiff", "II*\0...."},
+            {"image/tiff", "MM\0*...."},
+            {"image/bmp", "BM\n\0\0\0...."},
+        };
+        for (String[] test : good) {
+            assertTrue(MediaImages.contentIs(file(temp.resolve("good"), test[1]), test[0]), test[0] + " " + test[1]);
+        }
+        String[][] bad = {
+            {"application/pdf", "password=secret\n"},
+            {"image/png", "PNG but not really"},
+            {"image/webp", "RIFF\0\0\0\0WAVEfmt "},
+            {"image/avif", "\0\0\0\u0014ftypmif1\0\0\0\0mif1avif"},
+            {"image/bmp", "BM but the size is wrong"},
+            {"text/html", "<html>"},
+        };
+        for (String[] test : bad) {
+            assertFalse(MediaImages.contentIs(file(temp.resolve("bad"), test[1]), test[0]), test[0] + " " + test[1]);
+        }
     }
 }

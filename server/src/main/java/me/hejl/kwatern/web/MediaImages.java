@@ -3,6 +3,7 @@ package me.hejl.kwatern.web;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -32,8 +33,10 @@ import me.hejl.image.jpeg.JpegWriter;
  * media reference, and a larger image for the media page. They are made on first request, at most
  * {@link #PARALLEL} at a time since large scans take a while. Thumbnails and portraits are small and kept in
  * memory; the larger images only up to {@link #DISPLAY_CACHE} bytes, the most recently used. Only media objects
- * of the published database are ever read, so a request can never reach any other file; and the media of a
- * package are only read from where it was extracted, whatever paths its export gives.
+ * of the published database are ever read, so a request can never reach any other file. An export can name any
+ * file, though, and may come from someone else: its media are read only from the media directory unless allowed
+ * anywhere, those of a package only from where it was extracted, and a file is served as it is only if its content
+ * is of the type it is served as.
  */
 public final class MediaImages {
 
@@ -66,6 +69,7 @@ public final class MediaImages {
     private final Path mediaDir;
     private final String exportMediaPath;
     private final boolean packaged;
+    private final boolean anywhere;
     private final ImageDecoders decoders;
     private final Semaphore permits = new Semaphore(PARALLEL);
     /** What the header of a readable file says, and its format as recognised from the content. */
@@ -77,21 +81,38 @@ public final class MediaImages {
     private long displayedBytes;
 
     /**
+     * Media read only from the media directory.
+     *
      * @param mediaDir        where relative media paths are resolved; {@code null} to serve no media
      * @param exportMediaPath the base media path the export was made with; absolute paths under it are moved to
      *     {@code mediaDir}, so that an export made on one computer works with the files copied to another
      */
     public MediaImages(GrampsDatabase db, Path mediaDir, String exportMediaPath, ImageDecoders decoders) {
-        this(db, mediaDir, exportMediaPath, false, decoders);
+        this(db, mediaDir, exportMediaPath, false, false, decoders);
     }
 
     private MediaImages(
-            GrampsDatabase db, Path mediaDir, String exportMediaPath, boolean packaged, ImageDecoders decoders) {
+            GrampsDatabase db,
+            Path mediaDir,
+            String exportMediaPath,
+            boolean packaged,
+            boolean anywhere,
+            ImageDecoders decoders) {
         this.db = db;
         this.mediaDir = mediaDir;
         this.exportMediaPath = exportMediaPath;
         this.packaged = packaged;
+        this.anywhere = anywhere;
         this.decoders = decoders;
+    }
+
+    /**
+     * Media read from wherever the export says, as Gramps allows; see {@code --allow-media-anywhere}. Only for an
+     * export whose author may read every file of this computer that the server can.
+     */
+    public static MediaImages anywhere(
+            GrampsDatabase db, Path mediaDir, String exportMediaPath, ImageDecoders decoders) {
+        return new MediaImages(db, mediaDir, exportMediaPath, false, true, decoders);
     }
 
     /**
@@ -100,7 +121,7 @@ public final class MediaImages {
      * other files on this computer.
      */
     public static MediaImages ofPackage(GrampsDatabase db, Path directory, ImageDecoders decoders) {
-        return new MediaImages(db, directory, null, true, decoders);
+        return new MediaImages(db, directory, null, true, false, decoders);
     }
 
     /** No media at all. */
@@ -108,8 +129,23 @@ public final class MediaImages {
         return new MediaImages(db, null, null, ImageDecoders.DEFAULT);
     }
 
-    /** The file of a media object, unless there is none to read. */
+    /** The file of a media object, unless there is none to read or it may not be read. */
     Optional<Path> file(Media media) {
+        return located(media).filter(file -> packaged || anywhere || inMediaDir(file));
+    }
+
+    /**
+     * How many media files are not read because they are outside the media directory, for a warning at start. Their
+     * paths are checked only, not whether the files exist.
+     */
+    public long outsideMediaDir() {
+        return db.media().all().stream()
+                .filter(media -> located(media).isPresent() && file(media).isEmpty())
+                .count();
+    }
+
+    /** Where the file of a media object is, if the path is usable; whether it may be read is not checked. */
+    private Optional<Path> located(Media media) {
         if (mediaDir == null) {
             return Optional.empty();
         }
@@ -125,9 +161,13 @@ public final class MediaImages {
             if (!path.isAbsolute()) {
                 return Optional.of(mediaDir.resolve(path));
             }
-            if (exportMediaPath != null && !exportMediaPath.isBlank() && !Files.exists(path)) {
+            if (exportMediaPath != null && !exportMediaPath.isBlank()) {
                 Path exportBase = Path.of(exportMediaPath);
-                if (exportBase.isAbsolute() && path.startsWith(exportBase)) {
+                // Under the export's media path: in the media directory, unless still where the export says and
+                // allowed to be read there.
+                if (exportBase.isAbsolute()
+                        && path.startsWith(exportBase)
+                        && !(Files.exists(path) && (anywhere || inMediaDir(path)))) {
                     return Optional.of(mediaDir.resolve(exportBase.relativize(path)));
                 }
             }
@@ -135,6 +175,12 @@ public final class MediaImages {
         } catch (InvalidPathException e) {
             return Optional.empty();
         }
+    }
+
+    private boolean inMediaDir(Path file) {
+        Path root = mediaDir.toAbsolutePath().normalize();
+        Path normalized = file.toAbsolutePath().normalize();
+        return normalized.startsWith(root) && !normalized.equals(root);
     }
 
     /**
@@ -178,10 +224,59 @@ public final class MediaImages {
             return Optional.of(new Original(file, header.get().mimeType()));
         }
         String mime = media.mime() == null ? "" : media.mime().toLowerCase(Locale.ROOT);
-        if (mime.matches("image/(png|gif|webp|avif|bmp|tiff)|application/pdf")) {
+        if (contentIs(file, mime)) {
             return Optional.of(new Original(file, mime));
         }
         return Optional.empty();
+    }
+
+    /**
+     * Whether a file begins as files of a type do: images and PDF documents we serve without decoding them. Checked
+     * so that the type an export gives cannot have other files, such as keys or settings, served as it.
+     */
+    static boolean contentIs(Path file, String mime) {
+        byte[] start;
+        long size;
+        try (InputStream in = Files.newInputStream(file)) {
+            start = in.readNBytes(1024);
+            size = Files.size(file);
+        } catch (IOException e) {
+            return false;
+        }
+        String head = new String(start, StandardCharsets.ISO_8859_1);
+        return switch (mime) {
+            case "image/png" -> head.startsWith("\u0089PNG\r\n\u001a\n");
+            case "image/gif" -> head.startsWith("GIF87a") || head.startsWith("GIF89a");
+            case "image/webp" -> head.startsWith("RIFF") && head.startsWith("WEBP", 8);
+            case "image/avif" -> head.startsWith("ftyp", 4) && avifBrand(start);
+            // Two letters alone say little; the header also gives the file's size.
+            case "image/bmp" -> head.startsWith("BM") && start.length >= 6 && littleEndianInt(start, 2) == size;
+            case "image/tiff" -> head.startsWith("II*\0") || head.startsWith("MM\0*");
+            // PDF readers accept the header anywhere in the first kilobyte.
+            case "application/pdf" -> head.contains("%PDF-");
+            default -> false;
+        };
+    }
+
+    /** Whether an ISO file type box lists an AVIF brand, as the major or a compatible one. */
+    private static boolean avifBrand(byte[] start) {
+        int boxSize = (start[0] & 0xFF) << 24 | (start[1] & 0xFF) << 16 | (start[2] & 0xFF) << 8 | start[3] & 0xFF;
+        int end = Math.min(start.length, boxSize);
+        // The major brand at 8, the minor version at 12, then the compatible brands.
+        for (int i = 8; i + 4 <= end; i += i == 8 ? 8 : 4) {
+            String brand = new String(start, i, 4, StandardCharsets.ISO_8859_1);
+            if (brand.equals("avif") || brand.equals("avis")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static long littleEndianInt(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xFFL)
+                | (bytes[offset + 1] & 0xFFL) << 8
+                | (bytes[offset + 2] & 0xFFL) << 16
+                | (bytes[offset + 3] & 0xFFL) << 24;
     }
 
     /** The media reference whose image stands for a person: the first one, as in Gramps, if it can be shown. */

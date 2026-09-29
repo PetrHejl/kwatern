@@ -112,6 +112,7 @@ GRAALVM_HOME=/path/to/graalvm ./gradlew :server:nativeCompile
 ```sh
 server/build/native/nativeCompile/kwatern tree.gramps --port 8080
 server/build/native/nativeCompile/kwatern tree.gramps --media-dir /srv/media   # where the photos are
+server/build/native/nativeCompile/kwatern tree.gramps --allow-media-anywhere   # your own tree, media anywhere
 server/build/native/nativeCompile/kwatern tree.gpkg                          # package: media extracted
 server/build/native/nativeCompile/kwatern tree.gramps --check   # load, print summary, exit
 server/build/native/nativeCompile/kwatern --help
