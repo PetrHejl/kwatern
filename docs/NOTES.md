@@ -275,6 +275,10 @@ Python's `tarfile` writes them; no dependency).
   `--extract-dir` (useful where `/tmp` is kept in memory), removed when a reload replaces it and on exit,
   including on SIGINT and SIGTERM (the binary is built with `--install-exit-handlers`). `--media-dir` is refused with a package, so an extraction cannot overwrite a media folder.
 - Entries are only written inside that directory: names leading outside it, links and devices are skipped.
+- Media are read only from that directory too, under their names in the package (`MediaImages.ofPackage`),
+  whatever path the export gives. A package may come from someone else: before, an absolute path or `..` in its
+  export served any file the server could read, e.g. under `/media/{id}/original` with a PDF type. A plain export
+  keeps absolute paths, as Gramps allows media anywhere and the export is the operator's own.
 - Real export as a package (1.7 GB, 598 media): the export is read, the 583 published files extracted in
   3.8 s, and the site serves them as with a plain export.
 

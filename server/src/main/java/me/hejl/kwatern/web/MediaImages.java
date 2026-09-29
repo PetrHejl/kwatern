@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -18,6 +19,7 @@ import me.hejl.gramps.model.Media;
 import me.hejl.gramps.model.MediaRef;
 import me.hejl.gramps.model.Person;
 import me.hejl.gramps.model.Region;
+import me.hejl.gramps.xml.GrampsPackage;
 import me.hejl.image.Image;
 import me.hejl.image.ImageDecoders;
 import me.hejl.image.ImageException;
@@ -30,7 +32,8 @@ import me.hejl.image.jpeg.JpegWriter;
  * media reference, and a larger image for the media page. They are made on first request, at most
  * {@link #PARALLEL} at a time since large scans take a while. Thumbnails and portraits are small and kept in
  * memory; the larger images only up to {@link #DISPLAY_CACHE} bytes, the most recently used. Only media objects
- * of the published database are ever read, so a request can never reach any other file.
+ * of the published database are ever read, so a request can never reach any other file; and the media of a
+ * package are only read from where it was extracted, whatever paths its export gives.
  */
 public final class MediaImages {
 
@@ -62,6 +65,7 @@ public final class MediaImages {
     private final GrampsDatabase db;
     private final Path mediaDir;
     private final String exportMediaPath;
+    private final boolean packaged;
     private final ImageDecoders decoders;
     private final Semaphore permits = new Semaphore(PARALLEL);
     /** What the header of a readable file says, and its format as recognised from the content. */
@@ -78,10 +82,25 @@ public final class MediaImages {
      *     {@code mediaDir}, so that an export made on one computer works with the files copied to another
      */
     public MediaImages(GrampsDatabase db, Path mediaDir, String exportMediaPath, ImageDecoders decoders) {
+        this(db, mediaDir, exportMediaPath, false, decoders);
+    }
+
+    private MediaImages(
+            GrampsDatabase db, Path mediaDir, String exportMediaPath, boolean packaged, ImageDecoders decoders) {
         this.db = db;
         this.mediaDir = mediaDir;
         this.exportMediaPath = exportMediaPath;
+        this.packaged = packaged;
         this.decoders = decoders;
+    }
+
+    /**
+     * The media of a package, extracted to a directory. Each file is looked for there under its name in the
+     * package, never elsewhere: a package may come from someone else, and the paths in its export must not reach
+     * other files on this computer.
+     */
+    public static MediaImages ofPackage(GrampsDatabase db, Path directory, ImageDecoders decoders) {
+        return new MediaImages(db, directory, null, true, decoders);
     }
 
     /** No media at all. */
@@ -89,19 +108,33 @@ public final class MediaImages {
         return new MediaImages(db, null, null, ImageDecoders.DEFAULT);
     }
 
-    /** The file of a media object. */
-    Path file(Media media) {
-        Path path = Path.of(media.path());
-        if (!path.isAbsolute()) {
-            return mediaDir.resolve(path);
+    /** The file of a media object, unless there is none to read. */
+    Optional<Path> file(Media media) {
+        if (mediaDir == null) {
+            return Optional.empty();
         }
-        if (exportMediaPath != null && !exportMediaPath.isBlank() && !Files.exists(path)) {
-            Path exportBase = Path.of(exportMediaPath);
-            if (exportBase.isAbsolute() && path.startsWith(exportBase)) {
-                return mediaDir.resolve(exportBase.relativize(path));
+        try {
+            if (packaged) {
+                // Where GrampsPackage.extract put it, if it did.
+                Path root = mediaDir.toAbsolutePath().normalize();
+                Path file =
+                        root.resolve(GrampsPackage.archiveName(media.path())).normalize();
+                return file.startsWith(root) && !file.equals(root) ? Optional.of(file) : Optional.empty();
             }
+            Path path = Path.of(media.path());
+            if (!path.isAbsolute()) {
+                return Optional.of(mediaDir.resolve(path));
+            }
+            if (exportMediaPath != null && !exportMediaPath.isBlank() && !Files.exists(path)) {
+                Path exportBase = Path.of(exportMediaPath);
+                if (exportBase.isAbsolute() && path.startsWith(exportBase)) {
+                    return Optional.of(mediaDir.resolve(exportBase.relativize(path)));
+                }
+            }
+            return Optional.of(path);
+        } catch (InvalidPathException e) {
+            return Optional.empty();
         }
-        return path;
     }
 
     /**
@@ -113,17 +146,16 @@ public final class MediaImages {
     }
 
     private Optional<Header> header(Media media) {
-        if (mediaDir == null) {
-            return Optional.empty();
-        }
-        return headers.computeIfAbsent(media.handle(), handle -> {
-            try (InputStream in = Files.newInputStream(file(media))) {
-                var reader = decoders.open(in);
-                return Optional.of(new Header(reader.info(), reader.mimeType()));
-            } catch (IOException | RuntimeException e) {
-                return Optional.empty();
-            }
-        });
+        return headers.computeIfAbsent(
+                media.handle(),
+                handle -> file(media).flatMap(file -> {
+                    try (InputStream in = Files.newInputStream(file)) {
+                        var reader = decoders.open(in);
+                        return Optional.of(new Header(reader.info(), reader.mimeType()));
+                    } catch (IOException | RuntimeException e) {
+                        return Optional.empty();
+                    }
+                }));
     }
 
     /** Whether images can probably be made of a media file. */
@@ -136,11 +168,8 @@ public final class MediaImages {
      * Gramps recorded. Other kinds of files are not served, as browsers would only download them.
      */
     public Optional<Original> original(Media media) {
-        if (mediaDir == null) {
-            return Optional.empty();
-        }
-        Path file = file(media);
-        if (!Files.isRegularFile(file)) {
+        Path file = file(media).filter(Files::isRegularFile).orElse(null);
+        if (file == null) {
             return Optional.empty();
         }
         // The format found in the file, which may differ from what Gramps recorded.
@@ -236,7 +265,8 @@ public final class MediaImages {
 
     private Optional<byte[]> make(Media media, Region region, Kind kind) throws InterruptedException {
         permits.acquire();
-        try (InputStream in = Files.newInputStream(file(media))) {
+        // Only called for readable media, which have a file.
+        try (InputStream in = Files.newInputStream(file(media).orElseThrow())) {
             Thumbnails.Crop crop = region == null
                     ? null
                     : new Thumbnails.Crop(
