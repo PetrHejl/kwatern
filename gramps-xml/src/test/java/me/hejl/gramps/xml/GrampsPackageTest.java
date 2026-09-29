@@ -125,15 +125,24 @@ class GrampsPackageTest {
         Path file = samplePackage();
         Path media = temp.resolve("media");
         String longName = "scans/" + "a".repeat(120) + ".png";
-        int count =
+        var extraction =
                 GrampsPackage.extract(file, media, Set.of("photo.jpg", CZECH, longName, "../outside.jpg", "link.jpg"));
-        assertEquals(3, count);
+        assertEquals(new GrampsPackage.Extraction(3, 0), extraction);
         assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(media.resolve("photo.jpg")));
         assertEquals(700, Files.size(media.resolve(CZECH)), "PAX name with non-ASCII letters, over 100 bytes");
         assertArrayEquals(new byte[] {4}, Files.readAllBytes(media.resolve(longName)), "GNU long name");
         assertFalse(Files.exists(temp.resolve("outside.jpg")), "never outside the directory");
         assertFalse(Files.exists(media.resolve("link.jpg")), "links are not extracted");
         assertFalse(Files.exists(media.resolve("private.jpg")), "only the named files");
+    }
+
+    @Test
+    void leavesSpaceFree() throws IOException {
+        // As on a disk that the files would fill: a package from someone else can hold huge files of zeros.
+        Path media = temp.resolve("media");
+        var extraction = GrampsPackage.extract(samplePackage(), media, Set.of("photo.jpg", CZECH), Long.MAX_VALUE / 2);
+        assertEquals(new GrampsPackage.Extraction(0, 2), extraction);
+        assertFalse(Files.exists(media.resolve("photo.jpg")));
     }
 
     @Test

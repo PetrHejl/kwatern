@@ -27,6 +27,7 @@ import me.hejl.gramps.xml.GrampsXml;
 import me.hejl.image.ImageBuilder;
 import me.hejl.image.ImageDecoders;
 import me.hejl.image.jpeg.JpegReader;
+import me.hejl.kwatern.view.Views;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -309,6 +310,16 @@ class WebServerTest {
                 .orElseThrow()
                 .contains("sandbox"));
         assertEquals(27205, original.body().length);
+        // The browser asks again, as members' browsers do each time: the file is not sent again.
+        var again = CLIENT.send(
+                HttpRequest.newBuilder(URI.create(base + "/media/O0010/original"))
+                        .header(
+                                "If-None-Match",
+                                original.headers().firstValue("ETag").orElseThrow())
+                        .build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertEquals(304, again.statusCode());
+        assertEquals(0, again.body().length);
 
         // A PNG scan: shown like a photo, the original served as PNG.
         assertTrue(get("/media/O0000", null).body().contains("href=\"/media/O0000/original\""));
@@ -339,6 +350,39 @@ class WebServerTest {
         assertTrue(photos.contains("Undated · 6"), "undated last");
         assertTrue(photos.indexOf("1890–1899") < photos.indexOf("Undated"));
         assertTrue(get("/photos", "cs").body().contains("7 fotografií a dokumentů"), "Czech plural");
+    }
+
+    @Test
+    void letsBrowsersKeepTheScripts() throws Exception {
+        // Checked with the server on every map page: without a tag, the 150 KB of Leaflet were sent each time.
+        for (String path : new String[] {"/static/leaflet/leaflet.js", "/static/map.js", "/static/style.css"}) {
+            var first = get(path, null);
+            String etag = first.headers().firstValue("ETag").orElseThrow();
+            var again = CLIENT.send(
+                    HttpRequest.newBuilder(URI.create(base + path))
+                            .header("If-None-Match", etag)
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(304, again.statusCode(), path);
+            assertEquals("no-cache", again.headers().firstValue("Cache-Control").orElseThrow(), path);
+            assertEquals(first.body(), get(path, null).body(), path);
+        }
+        assertEquals(404, get("/static/nothing.js", null).statusCode());
+    }
+
+    @Test
+    void makesListingsOfTheWholeTreeOnce() {
+        var site = new Site(published, Site.Options.DEFAULT);
+        Ui ui = site.ui(null, null);
+        var first = new Views(site.data(), site.index(), ui, site.images());
+        var second = new Views(site.data(), site.index(), ui.with(Viewer.OPEN), site.images());
+        assertSame(first.places(), second.places());
+        assertSame(first.surnames(), second.surnames());
+        assertSame(first.treeMap("births", "all"), second.treeMap("births", "all"));
+        assertSame(first.treeMap("all", "all"), second.treeMap("nonsense", null), "unknown filters are all");
+        assertFalse(
+                first.places() == new Views(site.data(), site.index(), site.ui("cs", null), site.images()).places(),
+                "each language its own");
     }
 
     @Test

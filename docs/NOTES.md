@@ -154,7 +154,9 @@ direction with these building blocks:
   - One `@media (max-width: 900px)` block at the end holds all phone rules. The tree's column headings
     use gaps derived from the geometry in `Charts`, commented where they are set.
 - **Stylesheet caching:** its URL carries a version from its content (`/static/style.css?v=...`), cached for
-  good; any other request for it is revalidated, so a new build never shows with an old stylesheet.
+  good; any other request for it is revalidated, so a new build never shows with an old stylesheet. The other
+  static files (Leaflet, `map.js`) are revalidated too, with an ETag from their content, so a map page does not
+  fetch Leaflet's 150 KB again each time. They are read once and kept in memory.
 - **Fonts:** Manrope and Source Sans 3 are bundled (Latin and Latin Extended, 217 KB, SIL Open Font
   License, from Fontsource). Other scripts use system fonts. Loading them from Google Fonts would break
   the Content Security Policy and tell Google who visits.
@@ -163,6 +165,10 @@ direction with these building blocks:
   built once at startup.
 - **Listings:** "Surnames", "Places" and "Sources" in the header. Places are a tree under the places that
   are within no other, with countries open and deeper levels collapsible; sources are grouped by letter.
+  These listings and the tree's map are the same on every request, so they are made once per language and
+  version of the tree (`Ui.page`). Pages about one place or surname use `TreeIndex`, built with the version:
+  the events at each place, the places within each and the people under each surname. Before 2026-09-29 they
+  went through the whole tree on each request; the USA page of the example tree took about 75 ms, now 13 ms.
 - **Places that contain others** (countries, regions, parishes) are an overview of their area: a
   summary such as "State in USA · 68 events in 15 places within, 1628–1999"; the places within in the main
   column, busiest first, with a bar for their share; one timeline of everything within, naming the place
@@ -253,7 +259,9 @@ In the server (`web/MediaImages`):
   the initials remain.
 - **Cache:** made on first request, at most two at a time in the whole process. Until 2026-09-29 the limit was per
   view, so with a login, and while a new version was being loaded, four or more large images could be decoded at
-  once (up to 64 MB of coefficients each). Thumbnails and portraits stay in memory for the
+  once (up to 64 MB of coefficients each). The images are made once for both views: they depend only on the media
+  object and its file, so the members' view and the public one share them (`MediaImages.forView`), each reaching
+  only its own media. Originals have an ETag too. Thumbnails and portraits stay in memory for the
   life of the process; the larger images of media pages only up to 24 MB, the most recently used.
   - Requests for an image while it is being made wait for it rather than make it again. The larger images did
     not: 10 requests at once for a 144-megapixel photo decoded it 10 times, two at a time, the last answered
@@ -294,6 +302,8 @@ Python's `tarfile` writes them; no dependency).
   `--extract-dir` (useful where `/tmp` is kept in memory), removed when a reload replaces it and on exit,
   including on SIGINT and SIGTERM (the binary is built with `--install-exit-handlers`). `--media-dir` is refused with a package, so an extraction cannot overwrite a media folder.
 - Entries are only written inside that directory: names leading outside it, links and devices are skipped.
+- Files that would leave less than 256 MB free are not extracted, with a warning: a small package from someone
+  else can hold huge files of zeros, which would fill the disk, or the memory where `/tmp` is.
 - Media are read only from that directory too, under their names in the package (`MediaImages.ofPackage`),
   whatever path the export gives. A package may come from someone else: before, an absolute path or `..` in its
   export served any file the server could read, e.g. under `/media/{id}/original` with a PDF type. A plain export
@@ -331,14 +341,13 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
     or not, so nothing can be probed. The sign-in page shows only the brand, never the tree's name, counts or
     surnames.
 - **Two filtered sites, not per-page checks.** The export is parsed once and filtered twice, into
-  `Sites(everyone, members)`, each with its own search index and image caches; the session picks one per
+  `Sites(everyone, members)`, each with its own search index; they share the images; the session picks one per
   request.
   - A mistake in a template cannot leak a living person into the public view, because it does not contain
     them.
   - What each view shows: `--living` and `--private` for the public view, `--members-living` (default show)
     and `--members-private` (default hide) for members. Members must see at least what the public sees.
-  - Cost on the real export: 2 MB more heap and 3 MB more RSS, plus the second view's image caches as they
-    fill.
+  - Cost on the real export: 2 MB more heap and 3 MB more RSS.
 - **Users file:** `name:hash` lines, written by `kwatern passwd --users FILE NAME`. It replaces the
   member's line in place and creates the file readable by its owner only.
   - Hashing is PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2023) and a 16-byte salt. Argon2 would need

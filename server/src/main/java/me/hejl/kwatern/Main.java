@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import me.hejl.gramps.date.DateFormatter;
 import me.hejl.gramps.i18n.Languages;
@@ -462,10 +461,11 @@ public final class Main implements Callable<Integer> {
             }
             Path media = directory;
             String exportMediaPath = expandHome(full.header().mediaPath());
-            Function<PublicDatabase, Site> site = published -> published == null
-                    ? null
-                    : new Site(published, siteOptions(), mediaImages(published, isPackage, media, exportMediaPath));
-            Sites sites = new Sites(site.apply(everyone), site.apply(members));
+            // One set of images for both views, each reaching only its own media: they are made once.
+            MediaImages images = mediaImages(members != null ? members : everyone, isPackage, media, exportMediaPath);
+            Sites sites = new Sites(
+                    everyone == null ? null : new Site(everyone, siteOptions(), images.forView(everyone.database())),
+                    members == null ? null : new Site(members, siteOptions(), images));
             // The members' view has all the public one has.
             long outside = sites.members() != null
                     ? sites.members().images().outsideMediaDir()
@@ -625,10 +625,16 @@ public final class Main implements Callable<Integer> {
                 .map(m -> GrampsPackage.archiveName(m.path()))
                 .collect(Collectors.toSet());
         long start = System.nanoTime();
-        int count = GrampsPackage.extract(file, directory, names);
+        GrampsPackage.Extraction extraction = GrampsPackage.extract(file, directory, names);
         System.out.printf(
                 "package: extracted %d of %d published media files to %s in %d ms%n",
-                count, names.size(), directory, (System.nanoTime() - start) / 1_000_000);
+                extraction.extracted(), names.size(), directory, (System.nanoTime() - start) / 1_000_000);
+        if (extraction.noSpace() > 0) {
+            System.err.printf(
+                    "WARNING: %d media files are not extracted, as they would leave less than %d MB free in %s;"
+                            + " see --extract-dir%n",
+                    extraction.noSpace(), GrampsPackage.KEEP_FREE >> 20, directory);
+        }
         return directory;
     }
 
