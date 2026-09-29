@@ -30,7 +30,9 @@ Decisions, known differences from Gramps, and open items. Keep this file current
 - **UI:** own server-rendered pages, not Gramps.js. Templates use JTE in "generate" mode: they become Java sources at
   build time, so only `jte-runtime` ships and JTE's extension writes the Native Image configuration.
   Templates only lay out page records (`server/.../view/Pages`) that `Views` fills with formatted,
-  translated text.
+  translated text. `Views` hands each page to one of its parts (`ListingViews`, `PersonViews`, `ChartViews`,
+  `PlaceViews`, `MediaViews`), which share their helpers through `ViewPart`; it was one class of 1,800 lines
+  until 2026-09-29.
 - **Page language:** `?lang=` if given, else the browser's `Accept-Language`, else `--language`
   (default `en`). Any language works: ICU supplies dates and the alphabet (e.g. a "CH" heading in Czech);
   words fall back to English where no `messages_<lang>.properties` exists.
