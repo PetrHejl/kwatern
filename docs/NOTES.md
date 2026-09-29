@@ -485,10 +485,11 @@ Third-party material and what it requires:
 
 ## Measurements
 
-Native binary, 2026-09-26, on the developer's machine:
-
-| | Gramps example (2,157 people) | Real export (356 people, 598 media) |
-|---|---|---|
-| Load, including privacy filter | 157 ms | 68 ms |
-| Memory while serving (RSS) | | 80 MB |
-| Binary size | 45 MB (47 MB with images) | |
+Memory, load time and size, compared with Gramps Web, are in the README ("Memory and size"). They were measured
+with the native binary on the example tree: resident set when idle, after 1,500 pages for 300 people (their person,
+ancestor, fan chart, descendant and map pages), and the same with `-Xmx96m`. Gramps Web ran from its documented
+`docker-compose.yml` (image 3.22.1), with the tree imported through its API; memory is the sum of `docker stats`
+after the person and timeline API requests of 300 people, with the default 8 web workers and 2 Celery
+processes, and tuned to 2 and 1. Starting its stock compose file for the first time made both the web and the Celery
+container create a tree named "Gramps Web"; starting the web container first avoids that. The binary is 45 MB
+without the image decoders, 47 MB with them.

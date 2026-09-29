@@ -23,6 +23,72 @@ The screenshots show the fictional example tree of the Gramps project
 ([example.gramps](https://github.com/gramps-project/gramps/tree/v6.0.8/example/gramps), GPL-2.0-or-later)
 with its public-domain photos from Wikimedia Commons.
 
+## Why Kwatern
+
+[Gramps](https://gramps-project.org) is a wonderful program: free, careful with sources and evidence, and able to
+record almost anything a family history needs. Kwatern exists only because of it, and leaves all the research
+and editing to it.
+
+[Gramps Web](https://www.grampsweb.org) is the official way to take a Gramps tree online, and it is excellent.
+It is a full application for working on the tree together: editing in the browser, several users with their
+own permissions, synchronization with desktop Gramps, imports and exports, reports and more. If you want your
+family to add to the tree, use it.
+
+That breadth has a cost for a smaller need. Gramps Web runs as several containers (the web application, a
+background worker and a message broker), and on a small VPS it needs tuning to fit in memory. If all you want
+is to publish the tree you keep in desktop Gramps so relatives can browse it, Kwatern is the smaller tool for
+that job:
+
+- **One file to run.** A single native binary for Linux, no containers, no database, no runtime to install.
+- **Small.** A tree of thousands of people runs in 60–160 MB of memory, so it fits on the cheapest VPS next to
+  other services (see [Memory and size](#memory-and-size)).
+- **Read-only.** Nothing on the site can change the tree, which leaves fewer things that can go wrong and
+  fewer to secure. Gramps stays the one place where the tree is edited.
+- **Always current.** Copy a new export over the old one and the site shows it, with no import step.
+
+## Getting started
+
+You keep working on the tree in Gramps as before; Kwatern only shows it on the web.
+
+1. **Export the tree from Gramps:** *Family Trees → Export…*, then either *Gramps XML Package (family tree and
+   media)*, which takes the photos along, or *Gramps XML (family tree)* if the photos stay where they are on
+   this computer.
+2. **Download Kwatern** for Linux (x64 or arm64) from the
+   [releases](https://github.com/PetrHejl/kwatern/releases) and unpack it.
+3. **Start it with the export** and open <http://localhost:8080> in a browser:
+
+   ```sh
+   ./kwatern family.gpkg
+   ```
+
+That is all. Each person gets a page with their timeline, photos, family, ancestor and descendant charts and
+a map of the places they lived. There are pages for places and sources, a surname index and search. Pages come
+in English, Czech, German or Slovak, following each visitor's browser.
+
+**Sharing with the family.** Copy the program and the export to any small Linux server and put a web server with
+HTTPS in front of it, e.g. Caddy with `reverse_proxy 127.0.0.1:8080`. When you export a new version from Gramps
+and copy it over the old one, the site shows it within ten seconds, without a restart.
+
+**Privacy is safe by default.** People who may still be alive appear only as "Living", and anything marked
+private in Gramps stays out. To show more to relatives only, let them sign in (see [Signing in](#signing-in)).
+
+## Memory and size
+
+Both serving the Gramps example tree (2,157 people), measured on 2026-09-29 on a Linux PC. "After browsing" is
+after opening 300 people: for Kwatern their pages, charts and maps, 1,500 pages in all; for Gramps Web the API
+requests of their person pages.
+
+| | Kwatern | Kwatern, `-Xmx96m` | Gramps Web 3.22, defaults | Gramps Web, tuned |
+|---|---|---|---|---|
+| Runs as | 1 process | 1 process | 3 containers: 8 web workers, Celery with 2 processes, Valkey | 3 containers: 2 web workers, Celery with 1 process, Valkey |
+| Memory, idle | 101 MB | 67 MB | 1.7 GB | 570 MB |
+| Memory, after browsing | 152 MB | 57 MB | 1.8 GB | 600 MB |
+| Program size | 47 MB binary | 47 MB binary | 4.7 GB image | 4.7 GB image |
+
+Kwatern loads the tree in about 150 ms. On a real export of 356 people and 598 photos it serves in 80 MB.
+The memory is the resident set of the process for Kwatern and the sum of `docker stats` of the three containers
+for Gramps Web, which also does much more (see [Why Kwatern](#why-kwatern)).
+
 ## Modules
 
 - `gramps-xml` - parser and immutable model for Gramps XML (schema 1.7.x). No runtime dependencies.
