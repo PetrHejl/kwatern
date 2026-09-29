@@ -963,10 +963,12 @@ public final class Views {
         Map<String, Located> points = new HashMap<>();
         Set<String> unmapped = new HashSet<>();
         for (Event event : db.events().all()) {
+            // The lists' contains throws on null, and the schema lets an event go without a type.
+            String type = event.type() == null ? "" : event.type();
             boolean kindMatches = switch (kind) {
-                case "births" -> BIRTH.contains(event.type());
-                case "marriages" -> MARRIAGE.contains(event.type());
-                case "deaths" -> DEATH.contains(event.type());
+                case "births" -> BIRTH.contains(type);
+                case "marriages" -> MARRIAGE.contains(type);
+                case "deaths" -> DEATH.contains(type);
                 default -> true;
             };
             if (!kindMatches || event.place() == null) {
