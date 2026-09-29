@@ -75,6 +75,8 @@ public final class MediaImages {
     private final Map<String, FutureTask<Optional<byte[]>>> cache = new ConcurrentHashMap<>();
     private final Map<String, byte[]> displayed = new LinkedHashMap<>(16, 0.75f, true);
     private long displayedBytes;
+    // The larger images being made, until they are in the cache.
+    private final Map<String, FutureTask<Optional<byte[]>>> making = new ConcurrentHashMap<>();
 
     /**
      * @param mediaDir        where relative media paths are resolved; {@code null} to serve no media
@@ -202,38 +204,71 @@ public final class MediaImages {
                 .flatMap(ref -> db.media().get(ref.media()).flatMap(m -> image(m, ref.region(), Kind.PORTRAIT)));
     }
 
-    /** The image for the media page, made again when it has left the cache. */
+    /**
+     * The image for the media page, made again when it has left the cache. Requests for it while it is being made
+     * wait for that instead of making it again: a large scan takes seconds, and many requests at once would
+     * otherwise each take them.
+     */
     public Optional<Jpeg> display(Media media) {
         if (!readable(media)) {
             return Optional.empty();
         }
         String key = key(media, null, Kind.DISPLAY);
-        byte[] data;
-        synchronized (displayed) {
-            data = displayed.get(key);
-        }
+        byte[] data = displayed(key);
         if (data == null) {
+            // Looks in the cache again, and stores what it makes there before it is no longer in making: a request
+            // either finds it being made or finds it made.
+            FutureTask<Optional<byte[]>> task = new FutureTask<>(() -> {
+                byte[] cached = displayed(key);
+                if (cached != null) {
+                    return Optional.of(cached);
+                }
+                Optional<byte[]> made = make(media, null, Kind.DISPLAY);
+                made.ifPresent(bytes -> keepDisplayed(key, bytes));
+                return made;
+            });
+            FutureTask<Optional<byte[]>> running = making.putIfAbsent(key, task);
+            if (running == null) {
+                try {
+                    task.run();
+                } finally {
+                    making.remove(key, task);
+                }
+            } else {
+                task = running;
+            }
             try {
-                data = make(media, null, Kind.DISPLAY).orElse(null);
+                data = task.get().orElse(null);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                return Optional.empty();
+            } catch (ExecutionException e) {
                 return Optional.empty();
             }
             if (data == null) {
                 return Optional.empty();
             }
-            synchronized (displayed) {
-                if (displayed.put(key, data) == null) {
-                    displayedBytes += data.length;
-                }
-                var oldest = displayed.entrySet().iterator();
-                while (displayedBytes > DISPLAY_CACHE && oldest.hasNext()) {
-                    displayedBytes -= oldest.next().getValue().length;
-                    oldest.remove();
-                }
-            }
         }
         return Optional.of(new Jpeg(data, "\"" + key + "\""));
+    }
+
+    private byte[] displayed(String key) {
+        synchronized (displayed) {
+            return displayed.get(key);
+        }
+    }
+
+    private void keepDisplayed(String key, byte[] data) {
+        synchronized (displayed) {
+            if (displayed.put(key, data) == null) {
+                displayedBytes += data.length;
+            }
+            var oldest = displayed.entrySet().iterator();
+            while (displayedBytes > DISPLAY_CACHE && oldest.hasNext()) {
+                displayedBytes -= oldest.next().getValue().length;
+                oldest.remove();
+            }
+        }
     }
 
     private static String key(Media media, Region region, Kind kind) {

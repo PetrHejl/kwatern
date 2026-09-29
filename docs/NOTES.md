@@ -253,6 +253,9 @@ In the server (`web/MediaImages`):
   the initials remain.
 - **Cache:** made on first request, at most two at a time. Thumbnails and portraits stay in memory for the
   life of the process; the larger images of media pages only up to 24 MB, the most recently used.
+  - Requests for an image while it is being made wait for it rather than make it again. The larger images did
+    not: 10 requests at once for a 144-megapixel photo decoded it 10 times, two at a time, the last answered
+    after 12.8 s instead of 1.9 s, so anyone could keep two cores busy.
 - **Files:** `--media-dir` sets where they are; by default the export's media path (with `~` expanded), else
   the export's directory. Absolute paths under the export's media path are also looked for under
   `--media-dir`, so the files can be copied to a server with the export unchanged.
