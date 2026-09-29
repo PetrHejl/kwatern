@@ -333,6 +333,10 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
   - Forms over 4 KB are refused.
 - **Guessing:** failures are counted per address and per name. After 5 within 15 minutes they wait 1 minute,
   doubling up to 15; the counters are in memory only.
+  - Attempts still being checked count against the free ones: an address or name has at most 5 minus its
+    failures in flight (one after a block), and further ones are refused with `Retry-After`. Otherwise many
+    guesses sent at once all passed the check before the first failure was counted, and queued for the password
+    check, which also kept members from signing in.
   - An unknown name takes as long as a wrong password and gets the same message.
   - Without `--behind-proxy` behind a proxy, every visitor has the proxy's address and shares one counter.
   - A member's name can be blocked by others guessing it, for at most 15 minutes at a time.
