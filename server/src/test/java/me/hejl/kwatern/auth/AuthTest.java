@@ -17,9 +17,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -174,5 +178,59 @@ class AuthTest {
                 new Login.Result.SignedIn("jana"), login.signIn("10.0.0.3", "jana", "right password".toCharArray()));
         assertInstanceOf(Login.Result.Wrong.class, login.signIn("10.0.0.3", "nobody", wrong), "unknown name");
         assertInstanceOf(Login.Result.Wrong.class, login.signIn("10.0.0.3", "not a name!", wrong));
+    }
+
+    @Test
+    void countsAttemptsInFlight() {
+        var clock = new TestClock();
+        var attempts = new Attempts(clock);
+        for (int i = 0; i < 5; i++) {
+            assertEquals(Duration.ZERO, attempts.start("10.0.0." + i, "jana"));
+        }
+        assertEquals(Attempts.BUSY_WAIT, attempts.start("10.0.0.9", "jana"), "the name's free attempts are in flight");
+        assertEquals(Duration.ZERO, attempts.start("10.0.0.0", "petr"), "the address has free attempts left");
+
+        attempts.succeeded("10.0.0.0", "jana");
+        assertEquals(Duration.ZERO, attempts.start("10.0.0.9", "jana"), "an ended attempt frees its place");
+        for (int i = 1; i < 5; i++) {
+            attempts.failed("10.0.0." + i, "jana");
+        }
+        assertEquals(Attempts.BUSY_WAIT, attempts.start("10.0.0.8", "jana"), "one free attempt left, in flight");
+        attempts.failed("10.0.0.9", "jana");
+        assertEquals(Duration.ofMinutes(1), attempts.start("10.0.0.8", "jana"), "five failures block the name");
+
+        clock.advance(Duration.ofMinutes(1).plusSeconds(1));
+        assertEquals(Duration.ZERO, attempts.start("10.0.0.8", "jana"));
+        assertEquals(Attempts.BUSY_WAIT, attempts.start("10.0.0.7", "jana"), "after a block, one at a time");
+    }
+
+    @Test
+    void checksNoMoreGuessesSentAtOnceThanAreFree() throws Exception {
+        var login = new Login(
+                Login.Access.MEMBERS,
+                Users.of(Map.of("jana", HASH)),
+                new Sessions(Sessions.randomKey(), Users.of(Map.of("jana", HASH))),
+                false);
+        var go = new CountDownLatch(1);
+        List<Future<Login.Result>> results = new ArrayList<>();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < 50; i++) {
+                char[] guess = ("guess " + i).toCharArray();
+                results.add(executor.submit(() -> {
+                    go.await();
+                    return login.signIn("10.0.0.1", "jana", guess);
+                }));
+            }
+            go.countDown();
+        }
+        int checked = 0;
+        for (Future<Login.Result> result : results) {
+            if (result.get() instanceof Login.Result.Wrong) {
+                checked++;
+            }
+        }
+        // Failures and attempts in flight together never exceed the five free ones.
+        assertEquals(5, checked);
+        assertInstanceOf(Login.Result.TooMany.class, login.signIn("10.0.0.2", "jana", "right password".toCharArray()));
     }
 }

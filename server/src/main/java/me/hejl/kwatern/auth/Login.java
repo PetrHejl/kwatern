@@ -80,28 +80,31 @@ public final class Login {
     public Result signIn(String address, String given, char[] password) {
         // Counted under one key, so that made-up long names cannot fill the memory.
         String name = Users.validName(given) ? given : "";
-        Duration wait = attempts.wait(address, name);
+        Duration wait = attempts.start(address, name);
         if (!wait.isZero()) {
             return new Result.TooMany(wait);
         }
-        boolean right;
-        checks.acquireUninterruptibly();
+        boolean right = false;
         try {
-            String hash = name.isEmpty() ? null : users.hash(name);
-            if (hash == null) {
-                PasswordHash.verifyNothing(password);
-                right = false;
-            } else {
-                right = PasswordHash.verify(password, hash);
+            checks.acquireUninterruptibly();
+            try {
+                String hash = name.isEmpty() ? null : users.hash(name);
+                if (hash == null) {
+                    PasswordHash.verifyNothing(password);
+                } else {
+                    right = PasswordHash.verify(password, hash);
+                }
+            } finally {
+                checks.release();
             }
         } finally {
-            checks.release();
+            // Also when the check fails with an exception, so that the attempt does not stay in flight for good.
+            if (right) {
+                attempts.succeeded(address, name);
+            } else {
+                attempts.failed(address, name);
+            }
         }
-        if (!right) {
-            attempts.failed(address, name);
-            return new Result.Wrong();
-        }
-        attempts.succeeded(name);
-        return new Result.SignedIn(name);
+        return right ? new Result.SignedIn(name) : new Result.Wrong();
     }
 }
