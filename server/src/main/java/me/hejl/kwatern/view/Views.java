@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 import me.hejl.gramps.date.DateMath;
+import me.hejl.gramps.i18n.Languages;
 import me.hejl.gramps.i18n.Numbers;
 import me.hejl.gramps.model.Attribute;
 import me.hejl.gramps.model.ChildRef;
@@ -814,6 +815,11 @@ public final class Views {
             "Marriage Settlement",
             "Engagement");
 
+    /** The filters of the tree's map, "all" first. */
+    private static final List<String> MAP_KINDS = List.of("all", "births", "marriages", "deaths");
+
+    private static final List<String> MAP_PERIODS = List.of("all", "before1800", "1800s", "1900s");
+
     /** A place on the map: the place itself, or the nearest place containing it that has coordinates. */
     private record Located(Place place, Coordinates at) {}
 
@@ -939,10 +945,13 @@ public final class Views {
     /**
      * All places with events on one map, as circles by the number of events.
      *
-     * @param kind   {@code births}, {@code marriages}, {@code deaths}, or anything else for all events
-     * @param period {@code before1800}, {@code 1800s}, {@code 1900s}, or anything else for any time
+     * @param requestedKind   {@code births}, {@code marriages}, {@code deaths}, or anything else for all events
+     * @param requestedPeriod {@code before1800}, {@code 1800s}, {@code 1900s}, or anything else for any time
      */
-    public TreeMapPage treeMap(String kind, String period) {
+    public TreeMapPage treeMap(String requestedKind, String requestedPeriod) {
+        // Anything else would end up in the filter links, and none of them would be marked as chosen.
+        String kind = MAP_KINDS.contains(requestedKind) ? requestedKind : "all";
+        String period = MAP_PERIODS.contains(requestedPeriod) ? requestedPeriod : "all";
         Map<String, Integer> counts = new HashMap<>();
         Map<String, Located> points = new HashMap<>();
         Set<String> unmapped = new HashSet<>();
@@ -998,11 +1007,11 @@ public final class Views {
                 })
                 .toList();
         List<Tab> kinds = new ArrayList<>();
-        for (String k : List.of("all", "births", "marriages", "deaths")) {
+        for (String k : MAP_KINDS) {
             kinds.add(new Tab(ui.t("map.kind." + k), Urls.treeMap(k, period), k.equals(kind)));
         }
         List<Tab> periods = new ArrayList<>();
-        for (String p : List.of("all", "before1800", "1800s", "1900s")) {
+        for (String p : MAP_PERIODS) {
             periods.add(new Tab(ui.t("map.period." + p), Urls.treeMap(kind, p), p.equals(period)));
         }
         return new TreeMapPage(Json.markers(markers), counts.size(), unmapped.size(), kinds, periods);
@@ -1357,10 +1366,7 @@ public final class Views {
 
     /** A language code as a name in the page language, e.g. "el" as "Greek". */
     private String language(String code) {
-        if (code == null || code.isBlank()) {
-            return "";
-        }
-        return Locale.forLanguageTag(code.replace('_', '-')).getDisplayLanguage(ui.locale());
+        return Languages.name(code, ui.locale());
     }
 
     // ---------------------------------------------------------------- person parts

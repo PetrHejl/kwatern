@@ -31,12 +31,12 @@ import me.hejl.image.jpeg.JpegWriter;
 /**
  * The published media files and JPEG versions of them: thumbnails, portraits cropped to the region of a person's
  * media reference, and a larger image for the media page. They are made on first request, at most
- * {@link #PARALLEL} at a time since large scans take a while. Thumbnails and portraits are small and kept in
- * memory; the larger images only up to {@link #DISPLAY_CACHE} bytes, the most recently used. Only media objects
- * of the published database are ever read, so a request can never reach any other file. An export can name any
- * file, though, and may come from someone else: its media are read only from the media directory unless allowed
- * anywhere, those of a package only from where it was extracted, and a file is served as it is only if its content
- * is of the type it is served as.
+ * {@link #PARALLEL} at a time in the whole process, since large scans take a while and much memory. Thumbnails and
+ * portraits are small and kept in memory; the larger images only up to {@link #DISPLAY_CACHE} bytes, the most
+ * recently used. Only media objects of the published database are ever read, so a request can never reach any
+ * other file. An export can name any file, though, and may come from someone else: its media are read only from the
+ * media directory unless allowed anywhere, those of a package only from where it was extracted, and a file is served
+ * as it is only if its content is of the type it is served as.
  */
 public final class MediaImages {
 
@@ -64,6 +64,9 @@ public final class MediaImages {
     private static final int PARALLEL = 2;
     private static final int QUALITY = 85;
     private static final long DISPLAY_CACHE = 24L << 20;
+    // Shared by all instances: each view of the site has its own, and a reload makes new ones while the old ones may
+    // still be busy.
+    private static final Semaphore PERMITS = new Semaphore(PARALLEL);
 
     private final GrampsDatabase db;
     private final Path mediaDir;
@@ -71,7 +74,6 @@ public final class MediaImages {
     private final boolean packaged;
     private final boolean anywhere;
     private final ImageDecoders decoders;
-    private final Semaphore permits = new Semaphore(PARALLEL);
     /** What the header of a readable file says, and its format as recognised from the content. */
     private record Header(ImageInfo info, String mimeType) {}
 
@@ -394,7 +396,7 @@ public final class MediaImages {
     }
 
     private Optional<byte[]> make(Media media, Region region, Kind kind) throws InterruptedException {
-        permits.acquire();
+        PERMITS.acquire();
         // Only called for readable media, which have a file.
         try (InputStream in = Files.newInputStream(file(media).orElseThrow())) {
             Thumbnails.Crop crop = region == null
@@ -419,7 +421,7 @@ public final class MediaImages {
                     + e.getClass().getSimpleName());
             return Optional.empty();
         } finally {
-            permits.release();
+            PERMITS.release();
         }
     }
 }

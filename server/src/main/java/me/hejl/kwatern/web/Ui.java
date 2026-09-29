@@ -102,7 +102,7 @@ public final class Ui {
         return messages.get(key);
     }
 
-    /** A translated text with arguments; pass numbers as strings. */
+    /** A translated text with arguments; numbers are grouped as the language does, so pass years as strings. */
     public String t(String key, Object... args) {
         return messages.format(key, args);
     }

@@ -197,6 +197,20 @@ class WebServerTest {
     }
 
     @Test
+    void showsOnlyKnownMapFilters() throws Exception {
+        String map = get("/map?kind=births%26period%3D1800s&period=%23x", null).body();
+        assertTrue(map.contains("<b>All events</b>") && map.contains("<b>Any time</b>"), "the defaults");
+        assertFalse(map.contains("#x") || map.contains("%23x") || map.contains("1800s&amp;period"));
+    }
+
+    @Test
+    void namesLanguagesInThePageLanguage() throws Exception {
+        // Ioannina has a Greek and an English name: the one not in the heading is listed with its language.
+        assertTrue(get("/place/P0437", null).body().contains("<dd>Greek</dd>"));
+        assertTrue(get("/place/P0437", "cs").body().contains("<dd>angličtina</dd>"));
+    }
+
+    @Test
     void showsLivingPeopleWithoutDetails() throws Exception {
         String handle = published.living().iterator().next();
         Person original = full.people().get(handle).orElseThrow();
