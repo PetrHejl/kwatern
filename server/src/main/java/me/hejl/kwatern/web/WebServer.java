@@ -53,7 +53,7 @@ public final class WebServer {
     private static final String MAX_REQUEST_PROPERTY = "sun.net.httpserver.maxReqTime";
 
     // Replaced when the export is reloaded; each request reads it once, so it never mixes two versions.
-    private volatile Sites current;
+    private volatile Version current;
     private final Login login;
     private final String securityPolicy;
     private final TemplateEngine templates = TemplateEngine.createPrecompiled(ContentType.Html);
@@ -61,18 +61,19 @@ public final class WebServer {
 
     /** A site without a login. */
     public WebServer(Site site) {
-        this(Sites.open(site), null);
+        this(Version.of(Sites.open(site)), null);
     }
 
     /**
      * @param login how members sign in, or {@code null} for a site without a login, which then serves
      *              {@link Sites#everyone()} only
      */
-    public WebServer(Sites sites, Login login) {
+    public WebServer(Version version, Login login) {
+        Sites sites = version.sites();
         if (login == null ? sites.everyone() == null : sites.members() == null) {
             throw new IllegalArgumentException("the sites do not match the login");
         }
-        this.current = sites;
+        this.current = version;
         this.login = login;
         Site.MapOptions map = sites.any().options().map();
         this.securityPolicy = SECURITY_POLICY.formatted(map.enabled() ? " " + map.origin() : "");
@@ -80,12 +81,17 @@ public final class WebServer {
 
     /** Serves another version of the site from the next request on; its options must be the same. */
     public void replace(Site site) {
-        replace(Sites.open(site));
+        replace(Version.of(Sites.open(site)));
     }
 
-    /** Serves other versions of the sites from the next request on; they must be for the same login. */
-    public void replace(Sites sites) {
-        this.current = sites;
+    /**
+     * Serves another version from the next request on; it must be for the same login and options. The previous
+     * one is cleaned up once the requests still using it have ended.
+     */
+    public void replace(Version version) {
+        Version previous = current;
+        current = version;
+        previous.replace();
     }
 
     /** Starts serving; returns the port, which is chosen by the system if {@code port} is 0. */
@@ -106,9 +112,14 @@ public final class WebServer {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
+        // A version cleaned up between reading it and entering it has just been replaced: take the new one.
+        Version version = current;
+        while (!version.enter()) {
+            version = current;
+        }
         try (exchange) {
             try {
-                serve(exchange);
+                serve(exchange, version.sites());
             } catch (RuntimeException e) {
                 // Pages answer with an error page of their own; this is for images, files and signing in, whose
                 // errors the JDK's server would only answer by closing the connection, without a word in the log.
@@ -117,11 +128,12 @@ public final class WebServer {
                     send(exchange, 500, "text/plain; charset=utf-8", new byte[0]);
                 }
             }
+        } finally {
+            version.leave();
         }
     }
 
-    private void serve(HttpExchange exchange) throws IOException {
-        Sites sites = current;
+    private void serve(HttpExchange exchange, Sites sites) throws IOException {
         String method = exchange.getRequestMethod();
         String path = exchange.getRequestURI().getPath();
         boolean form = login != null && (path.equals("/sign-in") || path.equals("/sign-out"));

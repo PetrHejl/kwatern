@@ -65,16 +65,16 @@ class LoginTest {
                 new MediaImages(members.database(), example.getParent(), null, ImageDecoders.DEFAULT));
 
         privateServer = new WebServer(
-                new Sites(null, membersSite),
+                Version.of(new Sites(null, membersSite)),
                 new Login(Login.Access.PRIVATE, users, new Sessions(Sessions.randomKey(), users), false));
         privateBase = "http://127.0.0.1:" + privateServer.start("127.0.0.1", 0);
         membersServer = new WebServer(
-                new Sites(
+                Version.of(new Sites(
                         new Site(
                                 everyone,
                                 Site.Options.DEFAULT,
                                 new MediaImages(everyone.database(), example.getParent(), null, ImageDecoders.DEFAULT)),
-                        membersSite),
+                        membersSite)),
                 new Login(Login.Access.MEMBERS, users, new Sessions(Sessions.randomKey(), users), false));
         membersBase = "http://127.0.0.1:" + membersServer.start("127.0.0.1", 0);
     }

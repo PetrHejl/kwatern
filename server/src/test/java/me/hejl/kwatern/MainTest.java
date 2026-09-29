@@ -8,9 +8,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -86,6 +88,23 @@ class MainTest {
         assertEquals(1, run.exitCode());
         assertTrue(run.err().startsWith("cannot load tree.gramps: Malformed Gramps XML at line 2, column "), run.err());
         assertFalse(run.err().contains("Novak") || run.err().contains("\tat "), run.err());
+    }
+
+    @Test
+    void refusesMediaOptionsForAPackage(@TempDir Path directory) throws IOException {
+        // An empty tar archive, compressed: enough to be recognised as a package.
+        byte[] header = new byte[512];
+        System.arraycopy("ustar".getBytes(StandardCharsets.US_ASCII), 0, header, 257, 5);
+        Path file = directory.resolve("tree.gpkg");
+        try (var out = new GZIPOutputStream(Files.newOutputStream(file))) {
+            out.write(header);
+        }
+        Run mediaDir = run("--check", "--media-dir", directory.toString(), file.toString());
+        assertEquals(2, mediaDir.exitCode());
+        assertTrue(mediaDir.err().contains("--media-dir does not apply to a package"), mediaDir.err());
+        Run anywhere = run("--check", "--allow-media-anywhere", file.toString());
+        assertEquals(2, anywhere.exitCode());
+        assertTrue(anywhere.err().contains("--allow-media-anywhere does not apply to a package"), anywhere.err());
     }
 
     @Test
