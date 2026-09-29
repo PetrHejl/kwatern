@@ -1,11 +1,12 @@
 package me.hejl.gramps.i18n;
 
+import com.ibm.icu.text.MessageFormat;
+import com.ibm.icu.util.ULocale;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +21,9 @@ import java.util.Properties;
  * then {@code messages_cs.properties}, then {@code messages_cs_CZ.properties}, each overriding the previous.
  * Supporting a language means adding a file; missing keys fall back to the base file.
  *
- * <p>Values are {@link MessageFormat} patterns, so a literal apostrophe is written as two.
+ * <p>Values are ICU {@link MessageFormat} patterns, so a literal apostrophe is written as two. Numbers in them are
+ * formatted with ICU's locale data: the JDK's formats would work on the JVM, but a native image includes JDK
+ * locale data only for the default locale.
  */
 public final class Messages {
 
@@ -74,8 +77,8 @@ public final class Messages {
         return values.getOrDefault(key, key);
     }
 
-    /** Formats the pattern for {@code key}. Pass numbers as strings to avoid digit grouping. */
+    /** Formats the pattern for {@code key}. Numbers are grouped as the language does; pass years as strings. */
     public String format(String key, Object... args) {
-        return new MessageFormat(get(key), locale).format(args);
+        return new MessageFormat(get(key), ULocale.forLocale(locale)).format(args);
     }
 }

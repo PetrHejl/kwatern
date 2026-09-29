@@ -251,7 +251,9 @@ In the server (`web/MediaImages`):
   square around it. Regions are taken to refer to the image as displayed (after EXIF rotation). Pages show
   the portrait only when the file exists and starts like a JPEG, so they never show broken images; otherwise
   the initials remain.
-- **Cache:** made on first request, at most two at a time. Thumbnails and portraits stay in memory for the
+- **Cache:** made on first request, at most two at a time in the whole process. Until 2026-09-29 the limit was per
+  view, so with a login, and while a new version was being loaded, four or more large images could be decoded at
+  once (up to 64 MB of coefficients each). Thumbnails and portraits stay in memory for the
   life of the process; the larger images of media pages only up to 24 MB, the most recently used.
   - Requests for an image while it is being made wait for it rather than make it again. The larger images did
     not: 10 requests at once for a 144-megapixel photo decoded it 10 times, two at a time, the last answered
@@ -522,7 +524,14 @@ Third-party material and what it requires:
   `NumberFormatServiceShim` are registered in the same file. JDK locale data (`java.text` formats) is only
   included for the default locale in a native image, so numbers are formatted with ICU (`i18n/Numbers`).
   This had broken Czech coordinates in the native binary until 2026-09-28.
-  `--check` exercises date formatting and sorting to catch such gaps in a native build.
+  - Page texts are ICU `MessageFormat` patterns for the same reason: with the JDK's, counts in texts were grouped
+    as in English in the native binary ("12,345 fotografií"). Until 2026-09-29.
+  - Names of languages (of place names) come from ICU too (`Languages.name`); the JDK's gave English names in every
+    language. ICU needs its `lang` and `region` data for them, and creates `LocaleDisplayNamesImpl`,
+    `ICULangDataTables` and `ICURegionDataTables` by reflection, falling back to the bare code ("el") without
+    them. The data adds about 5 MB to the binary.
+  `--check` exercises date formatting, sorting, numbers in texts and language names to catch such gaps in a native
+  build.
 
 ## Measurements
 

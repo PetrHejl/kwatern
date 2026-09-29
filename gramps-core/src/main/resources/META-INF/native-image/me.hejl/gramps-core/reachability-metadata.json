@@ -17,6 +17,37 @@
           "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "com.ibm.icu.impl.LocaleDisplayNamesImpl",
+      "methods": [
+        {
+          "name": "getInstance",
+          "parameterTypes": ["com.ibm.icu.util.ULocale", "com.ibm.icu.text.LocaleDisplayNames$DialectHandling"]
+        },
+        {
+          "name": "getInstance",
+          "parameterTypes": ["com.ibm.icu.util.ULocale", "com.ibm.icu.text.DisplayContext[]"]
+        }
+      ]
+    },
+    {
+      "type": "com.ibm.icu.impl.ICULangDataTables",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.ibm.icu.impl.ICURegionDataTables",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     }
   ],
   "resources": [
@@ -28,6 +59,12 @@
     },
     {
       "glob": "com/ibm/icu/impl/data/icudata/coll/**"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/lang/**"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/region/**"
     },
     {
       "glob": "com/ibm/icu/impl/data/icudata/zone/**"

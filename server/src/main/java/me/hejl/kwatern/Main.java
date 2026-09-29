@@ -26,6 +26,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import me.hejl.gramps.date.DateFormatter;
 import me.hejl.gramps.i18n.Languages;
+import me.hejl.gramps.i18n.Messages;
 import me.hejl.gramps.i18n.Numbers;
 import me.hejl.gramps.model.DateValue;
 import me.hejl.gramps.model.GrampsCalendar;
@@ -849,6 +850,14 @@ public final class Main implements Callable<Integer> {
                 .append(Numbers.decimal(39.0483, 4, Locale.ENGLISH))
                 .append(" | cs ")
                 .append(Numbers.decimal(39.0483, 4, Locale.of("cs")))
+                .append(" | in a text (cs) ")
+                .append(Messages.load("me/hejl/kwatern/messages", Locale.of("cs"))
+                        .format("photos.total", 12345))
+                .append("\n");
+        sb.append("language names: el in cs ")
+                .append(Languages.name("el", Locale.of("cs")))
+                .append(" | pt in de ")
+                .append(Languages.name("pt", Locale.GERMAN))
                 .append("\n");
         // Pages are made only in these; with none, every visitor would get --language.
         sb.append("page languages: ").append(Languages.count()).append(" with ICU locale data\n");

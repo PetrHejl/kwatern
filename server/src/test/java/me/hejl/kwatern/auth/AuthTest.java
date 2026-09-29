@@ -3,6 +3,7 @@ package me.hejl.kwatern.auth;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -12,6 +13,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -94,6 +97,31 @@ class AuthTest {
         Users loaded = Users.load(file);
         assertEquals(other, loaded.hash("jana"));
         assertNull(loaded.hash("nobody"));
+    }
+
+    @Test
+    void replacesTheUsersFileWhole(@TempDir Path directory) throws Exception {
+        Path file = directory.resolve("users.txt");
+        Users.put(file, "jana", HASH);
+        assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(file));
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r-----"));
+        Object before = Files.readAttributes(file, BasicFileAttributes.class).fileKey();
+
+        Users.put(file, "petr", HASH);
+        // A new file moved over the old one: written in place, a crash while writing lost every member.
+        assertNotEquals(
+                before, Files.readAttributes(file, BasicFileAttributes.class).fileKey());
+        assertEquals(PosixFilePermissions.fromString("rw-r-----"), Files.getPosixFilePermissions(file), "kept");
+        assertEquals(List.of("jana:" + HASH, "petr:" + HASH), Files.readAllLines(file));
+        try (var files = Files.list(directory)) {
+            assertEquals(List.of(file), files.toList(), "nothing left beside it");
+        }
+
+        // A link to the file stays a link, and the file it points to changes.
+        Path link = Files.createSymbolicLink(directory.resolve("link.txt"), file);
+        Users.put(link, "eva", HASH);
+        assertTrue(Files.isSymbolicLink(link));
+        assertEquals(3, Files.readAllLines(file).size());
     }
 
     @Test

@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import me.hejl.gramps.i18n.Messages;
 import org.junit.jupiter.api.Test;
 
 /** The page texts of every language: complete, without stray keys, and valid patterns. */
@@ -81,9 +81,10 @@ class MessagesTest {
         all.add("en");
         for (String language : all) {
             Properties texts = load(language.equals("en") ? "" : "_" + language);
+            var messages = Messages.load("me/hejl/kwatern/messages", Locale.of(language));
             for (String key : texts.stringPropertyNames()) {
-                String pattern = texts.getProperty(key);
-                assertDoesNotThrow(() -> new MessageFormat(pattern, Locale.of(language)), language + " " + key);
+                // Formatting reads the pattern, which fails if it is not a valid one.
+                assertDoesNotThrow(() -> messages.format(key), language + " " + key);
             }
         }
     }

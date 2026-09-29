@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Media;
@@ -194,5 +195,58 @@ class MediaImagesTest {
         assertEquals(2, opened.get(), "the header once, the image once");
         assertTrue(images.display(photo).isPresent());
         assertEquals(2, opened.get(), "then from the cache");
+    }
+
+    @Test
+    void makesAtMostTwoImagesAtOnceInAllViews() throws Exception {
+        Path media = Path.of(System.getProperty("gramps.example")).getParent();
+        GrampsDatabase db = tree("1897_expeditionsmannschaft_rio_a.jpg");
+        Media photo = db.media().byId("O0").orElseThrow();
+        // Counts the images being made, and holds them up until all requests are there.
+        var counting = new AtomicBoolean();
+        var making = new AtomicInteger();
+        var most = new AtomicInteger();
+        var go = new CountDownLatch(1);
+        ImageDecoder jpeg = new JpegDecoder();
+        var decoders = new ImageDecoders(List.of(new ImageDecoder() {
+            @Override
+            public boolean accepts(byte[] header) {
+                return jpeg.accepts(header);
+            }
+
+            @Override
+            public ImageReader open(InputStream in) {
+                if (counting.get()) {
+                    most.accumulateAndGet(making.incrementAndGet(), Math::max);
+                    try {
+                        go.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    making.decrementAndGet();
+                }
+                return jpeg.open(in);
+            }
+        }));
+        // The public and the members' view, and a version being loaded: each has its own images.
+        List<MediaImages> views = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            var images = new MediaImages(db, media, null, decoders);
+            assertTrue(images.readable(photo));
+            views.add(images);
+        }
+        counting.set(true);
+        List<Future<Optional<MediaImages.Jpeg>>> results = new ArrayList<>();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (MediaImages images : views) {
+                results.add(executor.submit(() -> images.display(photo)));
+            }
+            Thread.sleep(200);
+            go.countDown();
+        }
+        for (Future<Optional<MediaImages.Jpeg>> result : results) {
+            assertTrue(result.get().isPresent());
+        }
+        assertEquals(2, most.get());
     }
 }

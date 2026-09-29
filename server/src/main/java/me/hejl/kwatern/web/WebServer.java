@@ -103,78 +103,90 @@ public final class WebServer {
 
     private void handle(HttpExchange exchange) throws IOException {
         try (exchange) {
-            Sites sites = current;
-            String method = exchange.getRequestMethod();
-            String path = exchange.getRequestURI().getPath();
-            boolean form = login != null && (path.equals("/sign-in") || path.equals("/sign-out"));
-            if (!method.equals("GET") && !method.equals("HEAD") && !(form && method.equals("POST"))) {
-                exchange.getResponseHeaders().set("Allow", form ? "GET, HEAD, POST" : "GET, HEAD");
-                send(exchange, 405, "text/plain; charset=utf-8", new byte[0]);
-                return;
-            }
-            if (path.equals("/health")) {
-                send(exchange, 200, "text/plain; charset=utf-8", "ok\n".getBytes(StandardCharsets.UTF_8));
-                return;
-            }
-            // The sign-in page needs the stylesheet and fonts, which hold nothing of the tree.
-            if (path.startsWith("/static/")) {
-                serveStatic(
-                        exchange,
-                        path.substring("/static/".length()),
-                        exchange.getRequestURI().getRawQuery());
-                return;
-            }
-            Sessions.Session session = login == null ? null : login.sessions().check(cookie(exchange));
-            String here = exchange.getRequestURI().getRawPath()
-                    + (exchange.getRequestURI().getRawQuery() == null
-                            ? ""
-                            : "?" + exchange.getRequestURI().getRawQuery());
-            Viewer viewer = login == null
-                    ? Viewer.OPEN
-                    : new Viewer(login.access(), session == null ? null : session.user(), here);
-            Site site = session != null ? sites.members() : sites.everyone();
-            if (login != null) {
-                // The same address shows a different page to a member.
-                exchange.getResponseHeaders().set("Vary", "Accept-Language, Cookie");
-                if (login.access() == Login.Access.PRIVATE) {
-                    exchange.getResponseHeaders().set("X-Robots-Tag", "noindex, nofollow");
-                }
-                String renewed = session != null && login.sessions().renew(session)
-                        ? login.sessions().issue(session.user(), session.keep())
-                        : null;
-                if (renewed != null) {
-                    setCookie(exchange, renewed, Sessions.maxAge(session.keep()));
-                }
-            }
-            if (form) {
-                Ui ui = ui(site != null ? site : sites.members(), exchange).with(viewer);
-                if (path.equals("/sign-out")) {
-                    signOut(exchange);
-                } else {
-                    signIn(exchange, ui, session != null);
-                }
-                return;
-            }
-            if (site == null) {
-                // Every address alike, whether it exists or not, so that none can be told apart.
-                redirect(exchange, viewer.signInUrl());
-                return;
-            }
-            if (path.startsWith("/portrait/") || path.startsWith("/thumbnail/")) {
-                serveImage(site, exchange, path, session != null);
-                return;
-            }
-            if (path.matches("/media/[^/]+/(image|original)")) {
-                serveMediaFile(site, exchange, path, session != null);
-                return;
-            }
-            Ui ui = ui(site, exchange).with(viewer);
             try {
-                route(site, exchange, path, ui);
+                serve(exchange);
             } catch (RuntimeException e) {
-                System.err.print(errorLog(path, e));
-                page(exchange, ui, 500, "error.jte", Map.of("message", ui.t("error.server")));
+                // Pages answer with an error page of their own; this is for images, files and signing in, whose
+                // errors the JDK's server would only answer by closing the connection, without a word in the log.
+                System.err.print(errorLog(exchange.getRequestURI().getPath(), e));
+                if (exchange.getResponseCode() == -1) {
+                    send(exchange, 500, "text/plain; charset=utf-8", new byte[0]);
+                }
             }
+        }
+    }
+
+    private void serve(HttpExchange exchange) throws IOException {
+        Sites sites = current;
+        String method = exchange.getRequestMethod();
+        String path = exchange.getRequestURI().getPath();
+        boolean form = login != null && (path.equals("/sign-in") || path.equals("/sign-out"));
+        if (!method.equals("GET") && !method.equals("HEAD") && !(form && method.equals("POST"))) {
+            exchange.getResponseHeaders().set("Allow", form ? "GET, HEAD, POST" : "GET, HEAD");
+            send(exchange, 405, "text/plain; charset=utf-8", new byte[0]);
+            return;
+        }
+        if (path.equals("/health")) {
+            send(exchange, 200, "text/plain; charset=utf-8", "ok\n".getBytes(StandardCharsets.UTF_8));
+            return;
+        }
+        // The sign-in page needs the stylesheet and fonts, which hold nothing of the tree.
+        if (path.startsWith("/static/")) {
+            serveStatic(
+                    exchange,
+                    path.substring("/static/".length()),
+                    exchange.getRequestURI().getRawQuery());
+            return;
+        }
+        Sessions.Session session = login == null ? null : login.sessions().check(cookie(exchange));
+        String here = exchange.getRequestURI().getRawPath()
+                + (exchange.getRequestURI().getRawQuery() == null
+                        ? ""
+                        : "?" + exchange.getRequestURI().getRawQuery());
+        Viewer viewer =
+                login == null ? Viewer.OPEN : new Viewer(login.access(), session == null ? null : session.user(), here);
+        Site site = session != null ? sites.members() : sites.everyone();
+        if (login != null) {
+            // The same address shows a different page to a member.
+            exchange.getResponseHeaders().set("Vary", "Accept-Language, Cookie");
+            if (login.access() == Login.Access.PRIVATE) {
+                exchange.getResponseHeaders().set("X-Robots-Tag", "noindex, nofollow");
+            }
+            String renewed = session != null && login.sessions().renew(session)
+                    ? login.sessions().issue(session.user(), session.keep())
+                    : null;
+            if (renewed != null) {
+                setCookie(exchange, renewed, Sessions.maxAge(session.keep()));
+            }
+        }
+        if (form) {
+            Ui ui = ui(site != null ? site : sites.members(), exchange).with(viewer);
+            if (path.equals("/sign-out")) {
+                signOut(exchange);
+            } else {
+                signIn(exchange, ui, session != null);
+            }
+            return;
+        }
+        if (site == null) {
+            // Every address alike, whether it exists or not, so that none can be told apart.
+            redirect(exchange, viewer.signInUrl());
+            return;
+        }
+        if (path.startsWith("/portrait/") || path.startsWith("/thumbnail/")) {
+            serveImage(site, exchange, path, session != null);
+            return;
+        }
+        if (path.matches("/media/[^/]+/(image|original)")) {
+            serveMediaFile(site, exchange, path, session != null);
+            return;
+        }
+        Ui ui = ui(site, exchange).with(viewer);
+        try {
+            route(site, exchange, path, ui);
+        } catch (RuntimeException e) {
+            System.err.print(errorLog(path, e));
+            page(exchange, ui, 500, "error.jte", Map.of("message", ui.t("error.server")));
         }
     }
 
