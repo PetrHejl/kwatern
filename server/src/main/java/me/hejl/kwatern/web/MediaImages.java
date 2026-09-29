@@ -283,6 +283,11 @@ public final class MediaImages {
             System.err.println(
                     "Cannot read media " + media.id() + ": " + e.getClass().getSimpleName());
             return Optional.empty();
+        } catch (RuntimeException e) {
+            // A malformed file the decoder does not catch; the page shows no image instead of failing.
+            System.err.println("Cannot make an image of media " + media.id() + ": "
+                    + e.getClass().getSimpleName());
+            return Optional.empty();
         } finally {
             permits.release();
         }

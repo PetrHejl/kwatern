@@ -10,6 +10,7 @@ import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -399,7 +400,29 @@ public final class Main implements Callable<Integer> {
         if (access == Login.Access.MEMBERS && publicOptions().equals(membersOptions())) {
             System.err.println("WARNING: members see the same as everyone; see --members-living and --members-private");
         }
+        warnIfOthersCanRead(users, "password hashes, which can be guessed offline");
+        if (secretFile != null) {
+            warnIfOthersCanRead(secretFile, "the key that signs sessions, with which anyone can sign in");
+        }
         return new Login(access, members, new Sessions(key, members), behindProxy);
+    }
+
+    /** Warns when other users of the computer can read a file with secrets. */
+    private static void warnIfOthersCanRead(Path file, String holds) {
+        if (othersCanRead(file)) {
+            System.err.printf("WARNING: others can read %s, which holds %s; chmod 600 %s%n", file, holds, file);
+        }
+    }
+
+    /** Whether the group or everyone may read a file; {@code false} where the file system does not tell. */
+    static boolean othersCanRead(Path file) {
+        try {
+            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
+            return permissions.contains(PosixFilePermission.GROUP_READ)
+                    || permissions.contains(PosixFilePermission.OTHERS_READ);
+        } catch (IOException | UnsupportedOperationException e) {
+            return false;
+        }
     }
 
     /** Reads the export, applies the privacy filter for each view and prepares their media, printing a summary. */

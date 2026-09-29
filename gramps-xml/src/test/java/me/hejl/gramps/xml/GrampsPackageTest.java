@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.Test;
@@ -146,5 +147,34 @@ class GrampsPackageTest {
         Path file = temp.resolve("empty.gpkg");
         new TarWriter().file("photo.jpg", new byte[] {1}).writeGzip(file);
         assertThrows(IOException.class, () -> GrampsPackage.read(file));
+    }
+
+    @Test
+    void readsPastMalformedPaxRecords() throws IOException {
+        Path file = temp.resolve("odd.gpkg");
+        // A length too short even for its own digits: the header is ignored from there on.
+        new TarWriter()
+                .entry("PaxHeader/x", 'x', "1 path=a\n".getBytes(StandardCharsets.US_ASCII))
+                .file(GrampsPackage.DATA, Files.readAllBytes(EXAMPLE))
+                .writeGzip(file);
+        assertEquals(
+                GrampsXml.read(EXAMPLE).database().people().size(),
+                GrampsPackage.read(file).database().people().size());
+    }
+
+    @Test
+    void rejectsInvalidPaxSizes() throws IOException {
+        for (String size : List.of("-5", "x")) {
+            Path file = temp.resolve("size" + size + ".gpkg");
+            String record = "size=" + size + "\n";
+            new TarWriter()
+                    .entry(
+                            "PaxHeader/x",
+                            'x',
+                            ((record.length() + 3) + " " + record).getBytes(StandardCharsets.US_ASCII))
+                    .file(GrampsPackage.DATA, Files.readAllBytes(EXAMPLE))
+                    .writeGzip(file);
+            assertThrows(IOException.class, () -> GrampsPackage.read(file), size);
+        }
     }
 }

@@ -54,7 +54,7 @@ final class Tar {
                     String name =
                             pax.containsKey("path") ? pax.get("path") : longName != null ? longName : name(header);
                     if (pax.containsKey("size")) {
-                        size = Long.parseLong(pax.get("size"));
+                        size = paxSize(pax.get("size"));
                     }
                     remaining = size;
                     padding = pad(size);
@@ -190,6 +190,18 @@ final class Tar {
         return value;
     }
 
+    private static long paxSize(String value) throws IOException {
+        try {
+            long size = Long.parseLong(value);
+            if (size >= 0) {
+                return size;
+            }
+        } catch (NumberFormatException e) {
+            // reported below
+        }
+        throw new IOException("Invalid tar header");
+    }
+
     /** PAX records: "LENGTH KEY=VALUE\n", where LENGTH counts the whole record in bytes. */
     private static Map<String, String> pax(String text) {
         Map<String, String> records = new HashMap<>();
@@ -209,7 +221,8 @@ final class Tar {
             } catch (NumberFormatException e) {
                 break;
             }
-            if (length <= 0 || position + length > bytes.length) {
+            // The length must also cover its own digits, the space and the closing newline.
+            if (position + length > bytes.length || position + length < space + 2) {
                 break;
             }
             String record = new String(bytes, space + 1, position + length - space - 2, StandardCharsets.UTF_8);

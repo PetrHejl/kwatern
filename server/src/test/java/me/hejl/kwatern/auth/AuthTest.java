@@ -103,6 +103,7 @@ class AuthTest {
         byte[] key = Sessions.randomKey();
         var sessions = new Sessions(key, users, clock);
 
+        assertNull(sessions.issue("nobody", true), "not a user, or no longer one");
         String cookie = sessions.issue("jana", true);
         Sessions.Session session = sessions.check(cookie);
         assertNotNull(session);

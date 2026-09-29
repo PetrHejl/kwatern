@@ -83,12 +83,19 @@ public final class Sessions {
         }
     }
 
-    /** The cookie value for a user who has just signed in. */
+    /**
+     * The cookie value for a user who has just signed in, or {@code null} if they have been removed from the users
+     * file since, which can happen between checking a password or session and this.
+     */
     public String issue(String user, boolean keep) {
+        String hash = users.hash(user);
+        if (hash == null) {
+            return null;
+        }
         Instant expires = clock.instant().plus(keep ? KEEP : SHORT);
         String payload = BASE64.encodeToString(user.getBytes(StandardCharsets.UTF_8)) + "." + expires.getEpochSecond()
                 + "." + (keep ? "1" : "0");
-        return payload + "." + BASE64.encodeToString(sign(payload, users.hash(user)));
+        return payload + "." + BASE64.encodeToString(sign(payload, hash));
     }
 
     /** The session of a cookie value, or {@code null} if it is missing, forged, expired or its user is gone. */

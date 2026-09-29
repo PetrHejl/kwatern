@@ -43,6 +43,10 @@ public final class WebServer {
     private static final String COOKIE = "kwatern-session";
     // Larger sign-in forms are refused unread.
     private static final int MAX_FORM_BYTES = 4096;
+    // A request must arrive within this many seconds, so that clients sending it slowly cannot hold connections
+    // open for good. Answers are not limited: a large file over a slow link takes long.
+    static final String MAX_REQUEST_SECONDS = "30";
+    private static final String MAX_REQUEST_PROPERTY = "sun.net.httpserver.maxReqTime";
 
     // Replaced when the export is reloaded; each request reads it once, so it never mixes two versions.
     private volatile Sites current;
@@ -82,6 +86,10 @@ public final class WebServer {
 
     /** Starts serving; returns the port, which is chosen by the system if {@code port} is 0. */
     public int start(String host, int port) throws IOException {
+        // The JDK's server reads it when first used, and waits forever without it; an operator's own value stays.
+        if (System.getProperty(MAX_REQUEST_PROPERTY) == null) {
+            System.setProperty(MAX_REQUEST_PROPERTY, MAX_REQUEST_SECONDS);
+        }
         server = HttpServer.create(new InetSocketAddress(host, port), 0);
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/", this::handle);
@@ -131,11 +139,11 @@ public final class WebServer {
                 if (login.access() == Login.Access.PRIVATE) {
                     exchange.getResponseHeaders().set("X-Robots-Tag", "noindex, nofollow");
                 }
-                if (session != null && login.sessions().renew(session)) {
-                    setCookie(
-                            exchange,
-                            login.sessions().issue(session.user(), session.keep()),
-                            Sessions.maxAge(session.keep()));
+                String renewed = session != null && login.sessions().renew(session)
+                        ? login.sessions().issue(session.user(), session.keep())
+                        : null;
+                if (renewed != null) {
+                    setCookie(exchange, renewed, Sessions.maxAge(session.keep()));
                 }
             }
             if (form) {
@@ -206,7 +214,13 @@ public final class WebServer {
         try {
             switch (login.signIn(address(exchange), name, password)) {
                 case Login.Result.SignedIn signedInAs -> {
-                    setCookie(exchange, login.sessions().issue(signedInAs.user(), keep), Sessions.maxAge(keep));
+                    String cookie = login.sessions().issue(signedInAs.user(), keep);
+                    if (cookie == null) {
+                        // Removed from the users file while the password was checked.
+                        signInPage(exchange, ui, 200, shown, next, keep, ui.t("signin.wrong"));
+                        return;
+                    }
+                    setCookie(exchange, cookie, Sessions.maxAge(keep));
                     redirect(exchange, next);
                 }
                 case Login.Result.Wrong wrong -> signInPage(exchange, ui, 200, shown, next, keep, ui.t("signin.wrong"));
