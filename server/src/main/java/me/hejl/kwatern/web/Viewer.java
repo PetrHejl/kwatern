@@ -19,13 +19,13 @@ public record Viewer(Access access, String user, boolean seesMore, String path) 
         return user != null;
     }
 
-    /** A "Sign in" link in the header: the site has a members' view and the viewer does not see it. */
+    /** A "Sign in" link in the header: members see more than the public, and the viewer is not signed in. */
     public boolean offersSignIn() {
         return access == Access.MEMBERS && user == null;
     }
 
     /**
-     * The bar saying this is the members' view, so that nobody shares what they see thinking it is public. A
+     * The bar saying the page shows more than the public view, so that nobody shares what they see thinking it is public. A
      * private site has no public view to mistake it for, and a member granted nothing more sees the public one.
      */
     public boolean membersBar() {

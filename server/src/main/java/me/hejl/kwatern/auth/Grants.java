@@ -12,9 +12,11 @@ public record Grants(boolean living, boolean privateRecords) {
 
     public static final Grants NONE = new Grants(false, false);
 
+    /** Living people and private records: the view with these grants has all the others have. */
+    public static final Grants EVERYTHING = new Grants(true, true);
+
     /** Every combination; the server builds a view for each, so that a change of the users file needs none. */
-    public static final List<Grants> ALL =
-            List.of(NONE, new Grants(true, false), new Grants(false, true), new Grants(true, true));
+    public static final List<Grants> ALL = List.of(NONE, new Grants(true, false), new Grants(false, true), EVERYTHING);
 
     /**
      * What members with these grants see: what the base view shows and what they are granted, so never less than
@@ -51,9 +53,15 @@ public record Grants(boolean living, boolean privateRecords) {
         return new Grants(living, privateRecords);
     }
 
+    /** What a member with these grants sees beyond the base view, in words for the command line. */
+    public String describe() {
+        return living && privateRecords
+                ? "living people and private records"
+                : living ? "living people" : privateRecords ? "private records" : "nothing";
+    }
+
     /** The users file's form, as {@link #parse} reads it. */
-    @Override
-    public String toString() {
+    public String format() {
         List<String> parts = new ArrayList<>();
         if (living) {
             parts.add("living");

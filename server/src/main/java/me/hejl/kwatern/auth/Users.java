@@ -140,7 +140,7 @@ public final class Users {
         if (Files.exists(target)) {
             lines.addAll(Files.readAllLines(target, StandardCharsets.UTF_8));
         }
-        String line = name + ":" + member.grants() + ":" + member.hash();
+        String line = name + ":" + member.grants().format() + ":" + member.hash();
         boolean replaced = false;
         for (int i = 0; i < lines.size(); i++) {
             if (lines.get(i).strip().startsWith(name + ":")) {

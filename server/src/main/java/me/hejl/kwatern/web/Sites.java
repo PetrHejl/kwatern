@@ -43,6 +43,6 @@ public record Sites(Site everyone, Map<Grants, Site> members) {
 
     /** The version that shows the most, which has all the others have; also for what they share: the options. */
     public Site widest() {
-        return hasMembers() ? members.get(new Grants(true, true)) : everyone;
+        return hasMembers() ? members.get(Grants.EVERYTHING) : everyone;
     }
 }
