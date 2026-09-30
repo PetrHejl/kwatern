@@ -246,13 +246,6 @@ public final class Main implements Callable<Integer> {
             description = "How often to check the file for changes. Default: ${DEFAULT-VALUE}")
     private int reloadInterval;
 
-    @Option(
-            names = "--source-url",
-            paramLabel = "URL",
-            description = "Where visitors get the source code of this program, linked in the page footer. The AGPL"
-                    + " asks anyone who serves a changed version to offer its source this way. Default: no link.")
-    private String sourceUrl;
-
     @Option(names = "--check", description = "Load the export, print a summary and exit.")
     private boolean check;
 
@@ -428,8 +421,7 @@ public final class Main implements Callable<Integer> {
                 language,
                 genderColours == Toggle.ON,
                 theme == Theme.AUTO ? null : theme.name().toLowerCase(Locale.ROOT),
-                mapOptions(),
-                sourceUrl);
+                mapOptions());
     }
 
     /**
@@ -456,9 +448,6 @@ public final class Main implements Callable<Integer> {
                 || !mapTiles.contains("{y}")) {
             throw new ParameterException(
                     spec.commandLine(), "--map-tiles must be an http(s) URL with {z}, {x} and {y}: " + mapTiles);
-        }
-        if (sourceUrl != null && !sourceUrl.matches("https?://[^/\\s]+(/\\S*)?")) {
-            throw new ParameterException(spec.commandLine(), "--source-url must be an http(s) URL: " + sourceUrl);
         }
         if (file == null) {
             throw new ParameterException(spec.commandLine(), "Missing the export: kwatern EXPORT");

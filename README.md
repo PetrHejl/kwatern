@@ -169,5 +169,6 @@ offer signing in on another address without `--behind-proxy`, unless `--allow-in
 
 AGPL-3.0-or-later, see [LICENSE](LICENSE). The program includes third-party software under its own licenses,
 listed in [NOTICE.txt](server/src/main/resources/me/hejl/kwatern/licenses/NOTICE.txt);
-`kwatern --licenses` prints them all, so every copy of the program carries them. If you serve a changed
-version, the AGPL asks you to offer its source to visitors: `--source-url` links to it from every page.
+`kwatern --licenses` prints them all, so every copy of the program carries them. Every page links to the source
+code in this repository. If you serve a changed version, the AGPL asks you to offer its source to visitors: set
+`SOURCE_URL` in `server/src/main/java/me/hejl/kwatern/web/Site.java` to where it is.

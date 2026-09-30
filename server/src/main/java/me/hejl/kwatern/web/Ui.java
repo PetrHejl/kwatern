@@ -148,11 +148,6 @@ public final class Ui {
         return hasMap;
     }
 
-    /** Where the source code is, for the footer link; {@code null} for none. See {@code --source-url}. */
-    public String sourceUrl() {
-        return options.sourceUrl();
-    }
-
     public Site.MapOptions map() {
         return options.map();
     }

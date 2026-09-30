@@ -18,19 +18,22 @@ public final class Site {
     public static final String PROGRAM = "Kwatern " + Version.VERSION;
 
     /**
+     * Where visitors get the source code, linked in the page footer as the AGPL asks (section 13). Anyone serving a
+     * changed version changes it to where their source is.
+     */
+    public static final String SOURCE_URL = "https://github.com/PetrHejl/kwatern";
+
+    /**
      * How the site looks.
      *
      * @param defaultLanguage page language when the browser asks for none
      * @param genderColours   whether to mark people by gender with colour
      * @param theme           {@code light} or {@code dark} to force one, {@code null} to follow the visitor's system
      * @param map             maps and their tiles
-     * @param sourceUrl       where visitors get the source code of this program, as the AGPL asks; {@code null} for
-     *                        no link
      */
-    public record Options(
-            String defaultLanguage, boolean genderColours, String theme, MapOptions map, String sourceUrl) {
+    public record Options(String defaultLanguage, boolean genderColours, String theme, MapOptions map) {
 
-        public static final Options DEFAULT = new Options("en", true, null, MapOptions.OPENSTREETMAP, null);
+        public static final Options DEFAULT = new Options("en", true, null, MapOptions.OPENSTREETMAP);
     }
 
     /**

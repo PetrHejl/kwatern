@@ -4,6 +4,7 @@ Copyright 2026 Petr Hejl
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
 General Public License as published by the Free Software Foundation, either version 3 of the License, or (at
 your option) any later version. It is distributed WITHOUT ANY WARRANTY; see the license below for details.
+The source code is at https://github.com/PetrHejl/kwatern.
 
 Parts of gramps-core follow the logic of Gramps (https://gramps-project.org), and the names of Gramps types in
 the page texts follow its translations. Gramps is licensed under the GNU General Public License version 2 or
