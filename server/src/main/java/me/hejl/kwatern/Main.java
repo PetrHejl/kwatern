@@ -393,9 +393,9 @@ public final class Main implements Callable<Integer> {
                     .sum();
             if (same > 0) {
                 System.err.printf(
-                        "WARNING: %d members see the same as everyone; grant them more with kwatern passwd"
-                                + " --living=show or --private=show%n",
-                        same);
+                        "WARNING: %s the same as everyone; grant more with kwatern passwd --living=show or"
+                                + " --private=show%n",
+                        same == 1 ? "1 member sees" : same + " members see");
             }
         }
         warnIfOthersCanRead(users, "password hashes, which can be guessed offline");

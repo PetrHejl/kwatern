@@ -173,9 +173,9 @@ final class Loader {
                                 ? mediaDir(exportMediaPath).toString()
                                 : "that the export sets";
                 System.err.printf(
-                        "WARNING: %d published media files are outside the media directory %s and are not served;"
+                        "WARNING: %s outside the media directory %s and not served;"
                                 + " see --media-dir and --allow-media-anywhere%n",
-                        outside, where);
+                        outside == 1 ? "1 published media file is" : outside + " published media files are", where);
             }
             Path media = directory;
             return new Version(version, media == null ? () -> {} : () -> remove(media));
@@ -228,9 +228,11 @@ final class Loader {
                 extraction.extracted(), names.size(), directory, (System.nanoTime() - start) / 1_000_000);
         if (extraction.noSpace() > 0) {
             System.err.printf(
-                    "WARNING: %d media files are not extracted, as they would leave less than %d MB free in %s;"
+                    "WARNING: %s not extracted, as extracting would leave less than %d MB free in %s;"
                             + " see --extract-dir%n",
-                    extraction.noSpace(), GrampsPackage.KEEP_FREE >> 20, directory);
+                    extraction.noSpace() == 1 ? "1 media file is" : extraction.noSpace() + " media files are",
+                    GrampsPackage.KEEP_FREE >> 20,
+                    directory);
         }
         return directory;
     }
