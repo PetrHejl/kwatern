@@ -69,7 +69,7 @@ final class MediaFiles {
             Responses.empty(request.exchange(), 404);
             return;
         }
-        // The members' view has the browser check each time: without a tag, it fetched the whole file again.
+        // Signed in, the browser checks each time: without a tag, it fetched the whole file again.
         var attributes = Files.readAttributes(original.get().file(), BasicFileAttributes.class);
         String etag = "\"%s-%d-%d-%d\""
                 .formatted(

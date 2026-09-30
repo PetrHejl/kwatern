@@ -11,7 +11,7 @@ import me.hejl.gramps.model.Table;
  * One request as the handlers need it.
  *
  * @param site    the view of the site the visitor sees
- * @param members whether the visitor is signed in, and so sees the members' view
+ * @param members whether the visitor is signed in, and so may see more than the public view
  */
 record Request(HttpExchange exchange, Site site, Viewer viewer, boolean members) {
 

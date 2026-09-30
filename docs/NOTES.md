@@ -19,7 +19,7 @@ Decisions, known differences from Gramps, and open items. Keep this file current
 | 4 | PNG and GIF decoders | done |
 | 5 | Ancestor tree and fan charts, descendant chart, family events and lifespans, maps | done |
 | 6 | Hot reload | done |
-| 6 | Optional login: members' view or private site | done |
+| 6 | Optional login: members' views or private site | done |
 | 6 | UI languages: German and Slovak besides English and Czech | done |
 
 ## Decisions

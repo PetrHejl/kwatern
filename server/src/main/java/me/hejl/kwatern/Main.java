@@ -367,15 +367,17 @@ public final class Main implements Callable<Integer> {
         }
         byte[] key = secretFile != null ? Sessions.keyFile(secretFile) : Sessions.randomKey();
         Map<Grants, Integer> counts = members.countByGrants();
+        String granted = counts.isEmpty()
+                ? ""
+                : counts.entrySet().stream()
+                        .map(e -> e.getValue() + " granted " + e.getKey().describe())
+                        .collect(Collectors.joining(", ", " (", ")"));
         System.out.printf(
                 "login: %s site, members: %d in %s%s; %s%n",
                 access.name().toLowerCase(Locale.ROOT),
                 members.size(),
                 users,
-                counts.entrySet().stream()
-                        .map(e ->
-                                e.getValue() + " granted " + (e.getKey().equals(Grants.NONE) ? "nothing" : e.getKey()))
-                        .collect(Collectors.joining(", ", counts.isEmpty() ? "" : " (", counts.isEmpty() ? "" : ")")),
+                granted,
                 secretFile != null
                         ? "sessions signed with the key in " + secretFile
                         : "sessions end when the server stops (see --secret-file)");
@@ -626,14 +628,7 @@ public final class Main implements Callable<Integer> {
             }
             System.out.printf(
                     "passwd: %s %s in %s, who sees %s beyond the public view%n",
-                    keepPassword ? "kept the password of" : "set the password of",
-                    name,
-                    file,
-                    grants.living() && grants.privateRecords()
-                            ? "living people and private records"
-                            : grants.living()
-                                    ? "living people"
-                                    : grants.privateRecords() ? "private records" : "nothing");
+                    keepPassword ? "kept the password of" : "set the password of", name, file, grants.describe());
             return 0;
         }
 

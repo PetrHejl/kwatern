@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.privacy.AliveRules;
 import me.hejl.gramps.privacy.PrivacyFilter;
@@ -116,35 +116,35 @@ final class Loader {
         GrampsDatabase full = result.database();
         var rules = AliveRules.DEFAULTS.withMaxAge(settings.maxAge());
         var alive = new ProbablyAlive(full, rules, LocalDate.now().getYear());
-        // Views that show the same are filtered once and served as one site.
-        Map<PrivacyOptions, PublicDatabase> views = new LinkedHashMap<>();
-        Function<PrivacyOptions, PublicDatabase> view =
-                options -> views.computeIfAbsent(options, o -> PrivacyFilter.apply(full, alive, o));
-        boolean open = settings.access() == Login.Access.OPEN;
-        PublicDatabase everyone =
-                settings.access() == Login.Access.PRIVATE ? null : view.apply(settings.publicOptions());
+        // What each view shows: everyone's (unless the site is private) and each grants'. Views that show the same
+        // are filtered once and served as one site.
+        PrivacyOptions publicOptions = settings.access() == Login.Access.PRIVATE ? null : settings.publicOptions();
         Map<Grants, PrivacyOptions> memberOptions = new LinkedHashMap<>();
-        if (!open) {
+        if (settings.access() != Login.Access.OPEN) {
             Grants.ALL.forEach(grants -> memberOptions.put(grants, membersOptions(grants)));
-            memberOptions.values().forEach(view::apply);
         }
-        // Showing living people and private records, it has all the other views have.
-        PublicDatabase widest = open ? everyone : view.apply(membersOptions(new Grants(true, true)));
+        Map<PrivacyOptions, PublicDatabase> views = new LinkedHashMap<>();
+        Stream.concat(Stream.ofNullable(publicOptions), memberOptions.values().stream())
+                .forEach(options -> views.computeIfAbsent(options, o -> PrivacyFilter.apply(full, alive, o)));
+        // It has all the others have: a member sees no less than everyone, and the most when granted everything.
+        PrivacyOptions widestOptions = memberOptions.isEmpty() ? publicOptions : memberOptions.get(Grants.EVERYTHING);
+        PublicDatabase widest = views.get(widestOptions);
         long loadMillis = (System.nanoTime() - start) / 1_000_000;
 
         result.warnings().forEach(w -> System.err.println("warning: " + w));
         System.out.print(summary(widest.database(), loadMillis));
         views.forEach((options, published) -> {
             List<String> who = new ArrayList<>();
-            if (everyone != null && options.equals(settings.publicOptions())) {
+            if (options.equals(publicOptions)) {
                 who.add("public view");
             }
             memberOptions.forEach((grants, o) -> {
                 if (o.equals(options)) {
-                    who.add("members granted " + (grants.equals(Grants.NONE) ? "nothing" : grants));
+                    who.add("members granted " + grants.describe());
                 }
             });
-            System.out.print(privacySummary(open ? null : String.join(", ", who), full, published, options));
+            System.out.print(
+                    privacySummary(memberOptions.isEmpty() ? null : String.join(", ", who), full, published, options));
         });
         Path directory = null;
         try {
@@ -155,16 +155,15 @@ final class Loader {
             // One set of images for all views, each reaching only its own media: they are made once.
             MediaImages images = mediaImages(widest, isPackage, directory, exportMediaPath);
             Map<PrivacyOptions, Site> sites = new HashMap<>();
-            Function<PrivacyOptions, Site> site = options -> sites.computeIfAbsent(options, o -> {
-                PublicDatabase published = views.get(o);
-                return new Site(
-                        published,
-                        settings.site(),
-                        published == widest ? images : images.forView(published.database()));
-            });
+            views.forEach((options, published) -> sites.put(
+                    options,
+                    new Site(
+                            published,
+                            settings.site(),
+                            options.equals(widestOptions) ? images : images.forView(published.database()))));
             Map<Grants, Site> members = new HashMap<>();
-            memberOptions.forEach((grants, options) -> members.put(grants, site.apply(options)));
-            var version = new Sites(everyone == null ? null : site.apply(settings.publicOptions()), members);
+            memberOptions.forEach((grants, options) -> members.put(grants, sites.get(options)));
+            var version = new Sites(publicOptions == null ? null : sites.get(publicOptions), members);
             long outside = version.widest().images().outsideMediaDir();
             if (outside > 0) {
                 // The media path an export sets is not printed: it may hold a name, as in /home/novak/Family tree.

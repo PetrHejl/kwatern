@@ -34,7 +34,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Signing in to a private site and to one with a members' view, over HTTP. */
+/** Signing in to a private site and to one where members see more than the public, over HTTP. */
 class LoginTest {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();

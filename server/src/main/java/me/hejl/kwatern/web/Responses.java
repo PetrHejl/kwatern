@@ -55,7 +55,7 @@ final class Responses {
         // Links and resources elsewhere learn nothing about the page, except tile servers on pages with a map:
         // OpenStreetMap refuses tiles without a Referer. They get the site's address, never the page's.
         headers.set("Referrer-Policy", ui.hasMap() && MAP_PAGES.contains(template) ? "strict-origin" : "same-origin");
-        // The members' view is kept by no cache, not even the browser's, where it would outlast signing out.
+        // What a member sees is kept by no cache, not even the browser's, where it would outlast signing out.
         boolean members = ui.viewer().signedIn();
         headers.set("Cache-Control", members || template.equals("signin.jte") ? "private, no-store" : "no-cache");
         if (members) {
@@ -77,7 +77,7 @@ final class Responses {
     }
 
     /**
-     * Images of the public view may be cached anywhere for an hour; those of the members' view only by the
+     * Images of the public view may be cached anywhere for an hour; those a signed-in member sees only by the
      * browser, which checks with the server each time, so that it stops showing them once signed out.
      */
     static void imageCaching(HttpExchange exchange, boolean members) {

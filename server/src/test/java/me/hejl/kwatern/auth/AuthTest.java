@@ -93,7 +93,7 @@ class AuthTest {
                 assertFalse(options.hidePrivate() && !base.hidePrivate(), grants + " over " + base);
             }
             assertEquals(base, Grants.NONE.over(base));
-            assertEquals(new PrivacyOptions(false, false), new Grants(true, true).over(base));
+            assertEquals(new PrivacyOptions(false, false), Grants.EVERYTHING.over(base));
         }
     }
 
@@ -104,7 +104,7 @@ class AuthTest {
         assertEquals(
                 Map.of(
                         "jana", MEMBER,
-                        "petr@hejl.me", new Users.Member(new Grants(true, true), HASH),
+                        "petr@hejl.me", new Users.Member(Grants.EVERYTHING, HASH),
                         "eva", new Users.Member(new Grants(false, true), HASH)),
                 users);
         assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana")));
@@ -116,7 +116,7 @@ class AuthTest {
         assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("ja na::" + HASH)));
         assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana::" + HASH, "jana::" + HASH)));
         for (Grants grants : Grants.ALL) {
-            assertEquals(grants, Grants.parse(grants.toString()));
+            assertEquals(grants, Grants.parse(grants.format()));
         }
         assertTrue(Users.validName("Jiří.Novák"));
         assertFalse(Users.validName("a:b"));
