@@ -59,8 +59,7 @@ class LoginTest {
         living = full.people().get(everyone.living().iterator().next()).orElseThrow();
         Map<Grants, Site> members = new HashMap<>();
         for (Grants grants : Grants.ALL) {
-            PublicDatabase view =
-                    PrivacyFilter.apply(full, alive, new PrivacyOptions(!grants.living(), !grants.privateRecords()));
+            PublicDatabase view = PrivacyFilter.apply(full, alive, grants.over(PrivacyOptions.DEFAULT));
             members.put(
                     grants,
                     new Site(

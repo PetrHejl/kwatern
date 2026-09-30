@@ -205,10 +205,8 @@ final class Loader {
      * nobody else sees anything, what they are granted beyond the safe defaults.
      */
     private PrivacyOptions membersOptions(Grants grants) {
-        PrivacyOptions base =
-                settings.access() == Login.Access.PRIVATE ? PrivacyOptions.DEFAULT : settings.publicOptions();
-        return new PrivacyOptions(
-                base.hideLiving() && !grants.living(), base.hidePrivate() && !grants.privateRecords());
+        return grants.over(
+                settings.access() == Login.Access.PRIVATE ? PrivacyOptions.DEFAULT : settings.publicOptions());
     }
 
     /**
