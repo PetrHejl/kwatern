@@ -376,6 +376,8 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
 - **Users file:** `name:grants:hash` lines, written by `kwatern passwd --users FILE NAME`. It replaces the
   member's line in place and creates the file readable by its owner only. `--keep-password` changes only the
   grants of an existing member, keeping the hash and so their sessions.
+  - `--living` and `--private` have no default: left out, they keep the member's grants (none for a new member).
+    Until 2026-09-30 they defaulted to `hide`, so setting a new password silently took the member's grants away.
   - Hashing is PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2023) and a 16-byte salt. Argon2 would need
     a library.
   - A check takes about 0.6 s in the native binary; two run at a time at most.
@@ -425,7 +427,9 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
   - Signed in, the header shows the name and a "Sign out" button, styled as a link, since signing out is a
     POST.
   - In members mode, a bar under the header says this is the members' view. A private site has no public
-    view to confuse it with, so it has no bar.
+    view to confuse it with, so it has no bar; nor has a member granted nothing beyond the public view, who sees
+    the public one (`Viewer.seesMore`: the member's `Site` is the public one, as views that show the same are
+    one `Site`).
 - **Colours:** error messages use a new pair of colour tokens, `--danger-bg` and `--danger-fg`.
 - **`--check`** hashes and verifies a password and signs a session, proving the JDK's crypto providers are
   in the native image. They are; no extra configuration was needed.
