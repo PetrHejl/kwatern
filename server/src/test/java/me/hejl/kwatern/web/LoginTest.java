@@ -259,7 +259,7 @@ class LoginTest {
         String cookie = signIn(membersBase, "eva", PASSWORD, path);
         var page = get(membersBase + path, cookie);
         assertTrue(page.body().contains("<h1 class=\"living\">Living</h1>"), "granted nothing more");
-        assertTrue(page.body().contains("class=\"members-bar\""));
+        assertFalse(page.body().contains("members-bar"), "the public view, which the bar must not call otherwise");
         assertTrue(get(privateBase + path, signIn(privateBase, "eva", PASSWORD, path))
                 .body()
                 .contains("<h1 class=\"living\">Living</h1>"));
@@ -269,7 +269,9 @@ class LoginTest {
             Files.writeString(file, before.replace("eva::", "eva:living:"));
             // The file is checked for changes every two seconds; the grants apply to the cookie she has.
             Thread.sleep(2_100);
-            assertFalse(get(membersBase + path, cookie).body().contains("<h1 class=\"living\">"));
+            var granted = get(membersBase + path, cookie);
+            assertFalse(granted.body().contains("<h1 class=\"living\">"));
+            assertTrue(granted.body().contains("class=\"members-bar\""));
         } finally {
             Files.writeString(file, before);
             Thread.sleep(2_100);

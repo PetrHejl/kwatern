@@ -572,20 +572,19 @@ public final class Main implements Callable<Integer> {
                 description = "The member's name for signing in: letters, digits and . _ @ -, at most 64.")
         private String name;
 
+        // No defaults: left out, they keep what an existing member sees, so that a new password takes nothing away.
         @Option(
                 names = "--living",
                 paramLabel = "hide|show",
-                defaultValue = "hide",
                 description = "Whether the member sees people who may be alive, where the public view hides them."
-                        + " Default: ${DEFAULT-VALUE}")
+                        + " Default: unchanged, hide for a new member")
         private Visibility living;
 
         @Option(
                 names = "--private",
                 paramLabel = "hide|show",
-                defaultValue = "hide",
                 description = "Whether the member sees records and details marked private in Gramps, where the public"
-                        + " view hides them. Default: ${DEFAULT-VALUE}")
+                        + " view hides them. Default: unchanged, hide for a new member")
         private Visibility privateRecords;
 
         @Option(
@@ -599,12 +598,19 @@ public final class Main implements Callable<Integer> {
                 throw new ParameterException(
                         spec.commandLine(), "A name has only letters, digits and . _ @ -, at most 64: " + name);
             }
-            var grants = new Grants(living == Visibility.SHOW, privateRecords == Visibility.SHOW);
+            Users.Member member = living == null || privateRecords == null || keepPassword ? existing() : null;
+            Grants before = member != null ? member.grants() : Grants.NONE;
+            var grants = new Grants(
+                    living == null ? before.living() : living == Visibility.SHOW,
+                    privateRecords == null ? before.privateRecords() : privateRecords == Visibility.SHOW);
             if (keepPassword) {
-                Users.Member member = Files.exists(file) ? Users.load(file).member(name) : null;
                 if (member == null) {
                     throw new ParameterException(
                             spec.commandLine(), name + " is not in " + file + "; set a password for a new member");
+                }
+                if (living == null && privateRecords == null) {
+                    throw new ParameterException(
+                            spec.commandLine(), "Nothing to change: give --living, --private or both");
                 }
                 Users.put(file, name, new Users.Member(grants, member.hash()));
             } else {
@@ -630,6 +636,18 @@ public final class Main implements Callable<Integer> {
                                     ? "living people"
                                     : grants.privateRecords() ? "private records" : "nothing");
             return 0;
+        }
+
+        /** The member as the users file has them, or {@code null} if they or the file are not there yet. */
+        private Users.Member existing() throws IOException {
+            if (!Files.exists(file)) {
+                return null;
+            }
+            try {
+                return Users.load(file).member(name);
+            } catch (IllegalArgumentException e) {
+                throw new ParameterException(spec.commandLine(), "Cannot read " + file + ": " + e.getMessage());
+            }
         }
 
         private char[] readPassword() throws IOException {

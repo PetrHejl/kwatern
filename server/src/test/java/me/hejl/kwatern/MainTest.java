@@ -2,6 +2,7 @@ package me.hejl.kwatern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -74,29 +75,50 @@ class MainTest {
     @Test
     void passwdSetsWhatAMemberSees(@TempDir Path directory) throws IOException {
         Path file = directory.resolve("users.txt");
-        InputStream in = System.in;
-        try {
-            System.setIn(new ByteArrayInputStream("a long password\n".getBytes(StandardCharsets.UTF_8)));
-            assertEquals(
-                    0,
-                    run("passwd", "--users", file.toString(), "--living=show", "tereza")
-                            .exitCode());
-        } finally {
-            System.setIn(in);
-        }
+        assertEquals(0, passwd("passwd", "--users", file.toString(), "--living=show", "tereza"));
         String line = Files.readString(file).strip();
         assertTrue(line.startsWith("tereza:living:pbkdf2-sha256$"), "hash not shown");
 
+        // What is left out stays as it was.
         assertEquals(
                 0,
                 run("passwd", "--users", file.toString(), "--private=show", "--keep-password", "tereza")
                         .exitCode());
         assertEquals(
-                line.replace(":living:", ":private:"), Files.readString(file).strip(), "the same password");
+                line.replace(":living:", ":living,private:"),
+                Files.readString(file).strip(),
+                "the same password");
+        assertEquals(0, passwd("passwd", "--users", file.toString(), "tereza"));
+        String changed = Files.readString(file).strip();
+        assertTrue(changed.startsWith("tereza:living,private:"), "a new password takes nothing away");
+        assertNotEquals(line.substring(line.lastIndexOf(':')), changed.substring(changed.lastIndexOf(':')));
+        assertEquals(
+                0,
+                run("passwd", "--users", file.toString(), "--living=hide", "--keep-password", "tereza")
+                        .exitCode());
+        assertTrue(Files.readString(file).startsWith("tereza:private:"));
 
-        Run nobody = run("passwd", "--users", file.toString(), "--keep-password", "jana");
+        Run nothing = run("passwd", "--users", file.toString(), "--keep-password", "tereza");
+        assertEquals(2, nothing.exitCode());
+        assertTrue(nothing.err().contains("Nothing to change"), nothing.err());
+        Run nobody = run("passwd", "--users", file.toString(), "--living=show", "--keep-password", "jana");
         assertEquals(2, nobody.exitCode());
         assertTrue(nobody.err().contains("jana is not in"), nobody.err());
+
+        // A new member sees nothing more unless granted.
+        assertEquals(0, passwd("passwd", "--users", file.toString(), "jana"));
+        assertTrue(Files.readString(file).contains("\njana::pbkdf2-sha256$"));
+    }
+
+    /** Runs kwatern passwd with a password on standard input, returning the exit code. */
+    private static int passwd(String... args) {
+        InputStream in = System.in;
+        try {
+            System.setIn(new ByteArrayInputStream("a long password\n".getBytes(StandardCharsets.UTF_8)));
+            return run(args).exitCode();
+        } finally {
+            System.setIn(in);
+        }
     }
 
     @Test

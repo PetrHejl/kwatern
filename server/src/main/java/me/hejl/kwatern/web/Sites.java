@@ -12,7 +12,8 @@ import me.hejl.kwatern.auth.Grants;
  *
  * @param everyone what visitors who are not signed in see, or {@code null} if the site is private
  * @param members  what signed-in members see, by what they are granted: one for each of {@link Grants#ALL}, or
- *                 none if the site has no login. Views that show the same may be the same site.
+ *                 none if the site has no login. Views that show the same are the same site, the public one
+ *                 included, which tells members granted nothing more that they see the public view.
  */
 public record Sites(Site everyone, Map<Grants, Site> members) {
 

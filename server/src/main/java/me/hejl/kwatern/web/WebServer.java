@@ -131,9 +131,10 @@ public final class WebServer {
                 + (exchange.getRequestURI().getRawQuery() == null
                         ? ""
                         : "?" + exchange.getRequestURI().getRawQuery());
-        Viewer viewer =
-                login == null ? Viewer.OPEN : new Viewer(login.access(), session == null ? null : session.user(), here);
         Site site = session != null ? sites.members(session.grants()) : sites.everyone();
+        Viewer viewer = login == null
+                ? Viewer.OPEN
+                : new Viewer(login.access(), session == null ? null : session.user(), site != sites.everyone(), here);
         if (signIn != null) {
             responses.withLogin(exchange);
             signIn.renew(exchange, session);

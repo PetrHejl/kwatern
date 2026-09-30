@@ -142,11 +142,12 @@ Family members can sign in to see more than the public, for example people who m
 `--access=members` everyone sees the public view and members who sign in see more; with `--access=private` only
 members who sign in see anything. What each member sees beyond the public view is set with `kwatern passwd`:
 `--living=show` for people who may be alive, `--private=show` for records marked private in Gramps. Without
-them a member sees only the public view (on a private site, what a public view shows by default).
+them a new member sees only the public view (on a private site, what a public view shows by default); for an
+existing member, what is left out stays as it was, so a new password takes nothing away.
 
 ```sh
 kwatern passwd --users users.txt --living=show tereza   # add a member or change their password
-kwatern passwd --users users.txt --living=show --private=show --keep-password tereza   # only what she sees
+kwatern passwd --users users.txt --private=show --keep-password tereza   # only what she sees
 kwatern family.gramps --access=members --users users.txt --secret-file session.key --behind-proxy
 ```
 
