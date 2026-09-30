@@ -18,12 +18,13 @@ import javax.crypto.spec.SecretKeySpec;
 /**
  * Signed session cookies. The cookie holds the user's name, when it expires and whether to keep it, signed with
  * HMAC-SHA256; the server stores nothing. The signature also covers the user's password hash, so changing the
- * password or removing the user from the users file ends their sessions. Thread-safe.
+ * password or removing the user from the users file ends their sessions. What the user sees is not in the cookie
+ * but taken from the users file on each request, so a change there applies at once. Thread-safe.
  */
 public final class Sessions {
 
-    /** A session that is signed in. */
-    public record Session(String user, boolean keep, Instant expires) {}
+    /** A session that is signed in, with what its user sees now. */
+    public record Session(String user, Grants grants, boolean keep, Instant expires) {}
 
     // "Keep me signed in": a month, renewed while in use; otherwise until the browser closes, at most 12 hours.
     static final Duration KEEP = Duration.ofDays(30);
@@ -83,10 +84,11 @@ public final class Sessions {
      * file since, which can happen between checking a password or session and this.
      */
     public String issue(String user, boolean keep) {
-        String hash = users.hash(user);
-        if (hash == null) {
+        Users.Member member = users.member(user);
+        if (member == null) {
             return null;
         }
+        String hash = member.hash();
         Instant expires = clock.instant().plus(keep ? KEEP : SHORT);
         String payload = BASE64.encodeToString(user.getBytes(StandardCharsets.UTF_8)) + "." + expires.getEpochSecond()
                 + "." + (keep ? "1" : "0");
@@ -107,12 +109,12 @@ public final class Sessions {
             Instant expires = Instant.ofEpochSecond(Long.parseLong(parts[1]));
             boolean keep = parts[2].equals("1");
             byte[] signature = Base64.getUrlDecoder().decode(parts[3]);
-            String hash = users.hash(user);
+            Users.Member member = users.member(user);
             String payload = parts[0] + "." + parts[1] + "." + parts[2];
-            if (hash == null || !MessageDigest.isEqual(signature, sign(payload, hash))) {
+            if (member == null || !MessageDigest.isEqual(signature, sign(payload, member.hash()))) {
                 return null;
             }
-            return expires.isAfter(clock.instant()) ? new Session(user, keep, expires) : null;
+            return expires.isAfter(clock.instant()) ? new Session(user, member.grants(), keep, expires) : null;
         } catch (IllegalArgumentException | DateTimeException e) {
             return null;
         }

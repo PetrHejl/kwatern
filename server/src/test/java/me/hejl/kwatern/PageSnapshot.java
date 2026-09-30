@@ -85,8 +85,8 @@ final class PageSnapshot {
 
     /** Status and hashes of every address of a view, by language and address, in order. */
     private static Map<String, String> snapshot(Path export, PrivacyOptions options) throws Exception {
-        var loader = new Loader(new Loader.Settings(
-                export, 110, Login.Access.OPEN, options, options, null, false, null, Site.Options.DEFAULT));
+        var loader = new Loader(
+                new Loader.Settings(export, 110, Login.Access.OPEN, options, null, false, null, Site.Options.DEFAULT));
         Version version = loader.load();
         var server = new WebServer(version, null);
         String base = "http://127.0.0.1:" + server.start("127.0.0.1", 0);

@@ -13,6 +13,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Person;
 import me.hejl.gramps.privacy.AliveRules;
@@ -22,6 +24,7 @@ import me.hejl.gramps.privacy.ProbablyAlive;
 import me.hejl.gramps.privacy.PublicDatabase;
 import me.hejl.gramps.xml.GrampsXml;
 import me.hejl.image.ImageDecoders;
+import me.hejl.kwatern.auth.Grants;
 import me.hejl.kwatern.auth.Login;
 import me.hejl.kwatern.auth.PasswordHash;
 import me.hejl.kwatern.auth.Sessions;
@@ -51,30 +54,33 @@ class LoginTest {
     static void start() throws IOException {
         Path example = Path.of(System.getProperty("gramps.example"));
         full = GrampsXml.read(example).database();
-        PublicDatabase everyone = PrivacyFilter.apply(full, new ProbablyAlive(full, AliveRules.DEFAULTS, 2026));
-        PublicDatabase members = PrivacyFilter.apply(
-                full, new ProbablyAlive(full, AliveRules.DEFAULTS, 2026), new PrivacyOptions(false, true));
+        var alive = new ProbablyAlive(full, AliveRules.DEFAULTS, 2026);
+        PublicDatabase everyone = PrivacyFilter.apply(full, alive);
         living = full.people().get(everyone.living().iterator().next()).orElseThrow();
+        Map<Grants, Site> members = new HashMap<>();
+        for (Grants grants : Grants.ALL) {
+            PublicDatabase view =
+                    PrivacyFilter.apply(full, alive, new PrivacyOptions(!grants.living(), !grants.privateRecords()));
+            members.put(
+                    grants,
+                    new Site(
+                            view,
+                            Site.Options.DEFAULT,
+                            new MediaImages(view.database(), example.getParent(), null, ImageDecoders.DEFAULT)));
+        }
 
         Path file = directory.resolve("users.txt");
-        Users.put(file, "jana", PasswordHash.hash(PASSWORD.toCharArray()));
+        String hash = PasswordHash.hash(PASSWORD.toCharArray());
+        Users.put(file, "jana", new Users.Member(new Grants(true, false), hash));
+        Users.put(file, "eva", new Users.Member(Grants.NONE, hash));
         Users users = Users.load(file);
-        Site membersSite = new Site(
-                members,
-                Site.Options.DEFAULT,
-                new MediaImages(members.database(), example.getParent(), null, ImageDecoders.DEFAULT));
 
         privateServer = new WebServer(
-                Version.of(new Sites(null, membersSite)),
+                Version.of(new Sites(null, members)),
                 new Login(Login.Access.PRIVATE, users, new Sessions(Sessions.randomKey(), users), false));
         privateBase = "http://127.0.0.1:" + privateServer.start("127.0.0.1", 0);
         membersServer = new WebServer(
-                Version.of(new Sites(
-                        new Site(
-                                everyone,
-                                Site.Options.DEFAULT,
-                                new MediaImages(everyone.database(), example.getParent(), null, ImageDecoders.DEFAULT)),
-                        membersSite)),
+                Version.of(new Sites(members.get(Grants.NONE), members)),
                 new Login(Login.Access.MEMBERS, users, new Sessions(Sessions.randomKey(), users), false));
         membersBase = "http://127.0.0.1:" + membersServer.start("127.0.0.1", 0);
     }
@@ -106,13 +112,17 @@ class LoginTest {
     }
 
     private static String signIn(String base, String password, String next) throws Exception {
+        return signIn(base, "jana", password, next);
+    }
+
+    private static String signIn(String base, String name, String password, String next) throws Exception {
         return post(
                         base,
                         "/sign-in",
                         base,
                         null,
-                        "name=jana&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8) + "&keep=1&next="
-                                + URLEncoder.encode(next, StandardCharsets.UTF_8))
+                        "name=" + name + "&password=" + URLEncoder.encode(password, StandardCharsets.UTF_8)
+                                + "&keep=1&next=" + URLEncoder.encode(next, StandardCharsets.UTF_8))
                 .headers()
                 .firstValue("Set-Cookie")
                 .map(c -> c.split(";")[0])
@@ -240,6 +250,30 @@ class LoginTest {
         assertEquals(200, thumbnail.statusCode());
         assertEquals("private, no-cache", header(thumbnail, "Cache-Control"));
         assertEquals("public, max-age=3600", header(get(membersBase + "/thumbnail/O0010", null), "Cache-Control"));
+    }
+
+    @Test
+    void eachMemberSeesWhatTheyAreGranted() throws Exception {
+        Path file = directory.resolve("users.txt");
+        String path = "/person/" + living.id();
+        String cookie = signIn(membersBase, "eva", PASSWORD, path);
+        var page = get(membersBase + path, cookie);
+        assertTrue(page.body().contains("<h1 class=\"living\">Living</h1>"), "granted nothing more");
+        assertTrue(page.body().contains("class=\"members-bar\""));
+        assertTrue(get(privateBase + path, signIn(privateBase, "eva", PASSWORD, path))
+                .body()
+                .contains("<h1 class=\"living\">Living</h1>"));
+
+        String before = Files.readString(file);
+        try {
+            Files.writeString(file, before.replace("eva::", "eva:living:"));
+            // The file is checked for changes every two seconds; the grants apply to the cookie she has.
+            Thread.sleep(2_100);
+            assertFalse(get(membersBase + path, cookie).body().contains("<h1 class=\"living\">"));
+        } finally {
+            Files.writeString(file, before);
+            Thread.sleep(2_100);
+        }
     }
 
     @Test

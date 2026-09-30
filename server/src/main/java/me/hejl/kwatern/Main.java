@@ -31,13 +31,13 @@ import me.hejl.gramps.model.GrampsDate;
 import me.hejl.gramps.name.NameOrder;
 import me.hejl.gramps.privacy.PrivacyOptions;
 import me.hejl.gramps.xml.GrampsPackage;
+import me.hejl.kwatern.auth.Grants;
 import me.hejl.kwatern.auth.Login;
 import me.hejl.kwatern.auth.PasswordHash;
 import me.hejl.kwatern.auth.Sessions;
 import me.hejl.kwatern.auth.Users;
 import me.hejl.kwatern.web.MediaImages;
 import me.hejl.kwatern.web.Site;
-import me.hejl.kwatern.web.Sites;
 import me.hejl.kwatern.web.Version;
 import me.hejl.kwatern.web.WebServer;
 import picocli.CommandLine;
@@ -61,7 +61,7 @@ import picocli.CommandLine.TypeConversionException;
         // indented under the first, after "Usage: ".
         customSynopsis = {
             "kwatern [OPTIONS] EXPORT",
-            "       kwatern passwd --users=FILE NAME",
+            "       kwatern passwd --users=FILE [OPTIONS] NAME",
             "       kwatern help [COMMAND]",
         },
         subcommands = {Main.Passwd.class, HelpCommand.class},
@@ -171,30 +171,16 @@ public final class Main implements Callable<Integer> {
             paramLabel = "open|members|private",
             defaultValue = "open",
             description = "Who sees the tree. open: everyone sees the public view. members: everyone sees the public"
-                    + " view, members who sign in see the members' view. private: only members who sign in see"
-                    + " anything. Default: ${DEFAULT-VALUE}")
+                    + " view, members who sign in also what kwatern passwd grants them. private: only members who"
+                    + " sign in see anything. Default: ${DEFAULT-VALUE}")
     private Login.Access access;
 
     @Option(
             names = "--users",
             paramLabel = "FILE",
-            description = "The members who can sign in, as written by kwatern passwd; read again when it changes.")
+            description = "The members who can sign in and what each sees beyond the public view, as written by"
+                    + " kwatern passwd; read again when it changes.")
     private Path users;
-
-    @Option(
-            names = "--members-living",
-            paramLabel = "hide|show",
-            defaultValue = "show",
-            description = "People who may be alive, in the members' view. Default: ${DEFAULT-VALUE}")
-    private Visibility membersLiving;
-
-    @Option(
-            names = "--members-private",
-            paramLabel = "hide|show",
-            defaultValue = "hide",
-            description =
-                    "Records and details marked private in Gramps, in the members' view. Default: ${DEFAULT-VALUE}")
-    private Visibility membersPrivate;
 
     @Option(
             names = "--secret-file",
@@ -332,15 +318,7 @@ public final class Main implements Callable<Integer> {
         validate();
         Login login = access == Login.Access.OPEN ? null : login();
         var loader = new Loader(new Loader.Settings(
-                file,
-                maxAge,
-                access,
-                publicOptions(),
-                membersOptions(),
-                mediaDir,
-                allowMediaAnywhere,
-                extractDir,
-                siteOptions()));
+                file, maxAge, access, publicOptions(), mediaDir, allowMediaAnywhere, extractDir, siteOptions()));
         Runtime.getRuntime().addShutdownHook(new Thread(loader::close));
         if (access != Login.Access.PRIVATE) {
             warnAboutVisibility(publicOptions());
@@ -349,8 +327,7 @@ public final class Main implements Callable<Integer> {
         ExportWatcher watcher = reload == Toggle.ON && !check ? ExportWatcher.of(file) : null;
         Version version = loader.load();
         if (check) {
-            Sites sites = version.sites();
-            Site site = sites.members() != null ? sites.members() : sites.everyone();
+            Site site = version.sites().widest();
             System.out.print(icuSelfTest());
             System.out.print(imageSelfTest(site.data().database(), site.images()));
             if (login != null) {
@@ -380,10 +357,6 @@ public final class Main implements Callable<Integer> {
         return new PrivacyOptions(living == Visibility.HIDE, privateRecords == Visibility.HIDE);
     }
 
-    private PrivacyOptions membersOptions() {
-        return new PrivacyOptions(membersLiving == Visibility.HIDE, membersPrivate == Visibility.HIDE);
-    }
-
     /** The members and how they sign in, printing a summary. */
     private Login login() throws IOException {
         Users members;
@@ -393,11 +366,16 @@ public final class Main implements Callable<Integer> {
             throw new ParameterException(spec.commandLine(), "Cannot read " + users + ": " + e.getMessage());
         }
         byte[] key = secretFile != null ? Sessions.keyFile(secretFile) : Sessions.randomKey();
+        Map<Grants, Integer> counts = members.countByGrants();
         System.out.printf(
-                "login: %s site, members: %d in %s; %s%n",
+                "login: %s site, members: %d in %s%s; %s%n",
                 access.name().toLowerCase(Locale.ROOT),
                 members.size(),
                 users,
+                counts.entrySet().stream()
+                        .map(e ->
+                                e.getValue() + " granted " + (e.getKey().equals(Grants.NONE) ? "nothing" : e.getKey()))
+                        .collect(Collectors.joining(", ", counts.isEmpty() ? "" : " (", counts.isEmpty() ? "" : ")")),
                 secretFile != null
                         ? "sessions signed with the key in " + secretFile
                         : "sessions end when the server stops (see --secret-file)");
@@ -405,8 +383,19 @@ public final class Main implements Callable<Integer> {
             System.err.println(
                     "WARNING: nobody can sign in yet; add members with kwatern passwd --users " + users + " NAME");
         }
-        if (access == Login.Access.MEMBERS && publicOptions().equals(membersOptions())) {
-            System.err.println("WARNING: members see the same as everyone; see --members-living and --members-private");
+        if (access == Login.Access.MEMBERS) {
+            // Granted only what everyone sees anyway.
+            int same = counts.entrySet().stream()
+                    .filter(e -> (living == Visibility.SHOW || !e.getKey().living())
+                            && (privateRecords == Visibility.SHOW || !e.getKey().privateRecords()))
+                    .mapToInt(Map.Entry::getValue)
+                    .sum();
+            if (same > 0) {
+                System.err.printf(
+                        "WARNING: %d members see the same as everyone; grant them more with kwatern passwd"
+                                + " --living=show or --private=show%n",
+                        same);
+            }
         }
         warnIfOthersCanRead(users, "password hashes, which can be guessed offline");
         if (secretFile != null) {
@@ -517,13 +506,6 @@ public final class Main implements Callable<Integer> {
                     spec.commandLine(),
                     "Not a file: " + users + "; add members with kwatern passwd --users " + users + " NAME");
         }
-        if (access == Login.Access.MEMBERS
-                && ((living == Visibility.SHOW && membersLiving == Visibility.HIDE)
-                        || (privateRecords == Visibility.SHOW && membersPrivate == Visibility.HIDE))) {
-            throw new ParameterException(
-                    spec.commandLine(),
-                    "Members must see at least what everyone sees: check --members-living and" + " --members-private");
-        }
         if (!behindProxy && !allowInsecureLogin && !loopback(host)) {
             throw new ParameterException(
                     spec.commandLine(),
@@ -558,7 +540,8 @@ public final class Main implements Callable<Integer> {
         String hash = PasswordHash.hash(password);
         boolean checks = PasswordHash.verify(password, hash) && !PasswordHash.verify("another".toCharArray(), hash);
         long millis = (System.nanoTime() - start) / 2_000_000;
-        var sessions = new Sessions(Sessions.randomKey(), Users.of(Map.of("someone", hash)));
+        var sessions =
+                new Sessions(Sessions.randomKey(), Users.of(Map.of("someone", new Users.Member(Grants.NONE, hash))));
         boolean signs = sessions.check(sessions.issue("someone", true)) != null;
         return "login: password check %s, %d ms each; sessions %s%n"
                 .formatted(checks ? "works" : "FAILS", millis, signs ? "work" : "FAIL");
@@ -567,8 +550,9 @@ public final class Main implements Callable<Integer> {
     @Command(
             name = "passwd",
             mixinStandardHelpOptions = true,
-            description = "Sets a member's password in the users file, adding the member if new. Reads the password"
-                    + " twice from the terminal, or once from standard input.")
+            sortOptions = false,
+            description = "Sets a member's password and what they see in the users file, adding the member if new."
+                    + " Reads the password twice from the terminal, or once from standard input.")
     static final class Passwd implements Callable<Integer> {
 
         private static final int MIN_LENGTH = 8;
@@ -588,23 +572,63 @@ public final class Main implements Callable<Integer> {
                 description = "The member's name for signing in: letters, digits and . _ @ -, at most 64.")
         private String name;
 
+        @Option(
+                names = "--living",
+                paramLabel = "hide|show",
+                defaultValue = "hide",
+                description = "Whether the member sees people who may be alive, where the public view hides them."
+                        + " Default: ${DEFAULT-VALUE}")
+        private Visibility living;
+
+        @Option(
+                names = "--private",
+                paramLabel = "hide|show",
+                defaultValue = "hide",
+                description = "Whether the member sees records and details marked private in Gramps, where the public"
+                        + " view hides them. Default: ${DEFAULT-VALUE}")
+        private Visibility privateRecords;
+
+        @Option(
+                names = "--keep-password",
+                description = "Only set what an existing member sees, keeping their password and sessions.")
+        private boolean keepPassword;
+
         @Override
         public Integer call() throws IOException {
             if (!Users.validName(name)) {
                 throw new ParameterException(
                         spec.commandLine(), "A name has only letters, digits and . _ @ -, at most 64: " + name);
             }
-            char[] password = readPassword();
-            try {
-                if (password.length < MIN_LENGTH) {
+            var grants = new Grants(living == Visibility.SHOW, privateRecords == Visibility.SHOW);
+            if (keepPassword) {
+                Users.Member member = Files.exists(file) ? Users.load(file).member(name) : null;
+                if (member == null) {
                     throw new ParameterException(
-                            spec.commandLine(), "A password needs at least " + MIN_LENGTH + " characters");
+                            spec.commandLine(), name + " is not in " + file + "; set a password for a new member");
                 }
-                Users.put(file, name, PasswordHash.hash(password));
-            } finally {
-                Arrays.fill(password, '\0');
+                Users.put(file, name, new Users.Member(grants, member.hash()));
+            } else {
+                char[] password = readPassword();
+                try {
+                    if (password.length < MIN_LENGTH) {
+                        throw new ParameterException(
+                                spec.commandLine(), "A password needs at least " + MIN_LENGTH + " characters");
+                    }
+                    Users.put(file, name, new Users.Member(grants, PasswordHash.hash(password)));
+                } finally {
+                    Arrays.fill(password, '\0');
+                }
             }
-            System.out.printf("passwd: set the password of %s in %s%n", name, file);
+            System.out.printf(
+                    "passwd: %s %s in %s, who sees %s beyond the public view%n",
+                    keepPassword ? "kept the password of" : "set the password of",
+                    name,
+                    file,
+                    grants.living() && grants.privateRecords()
+                            ? "living people and private records"
+                            : grants.living()
+                                    ? "living people"
+                                    : grants.privateRecords() ? "private records" : "nothing");
             return 0;
         }
 
