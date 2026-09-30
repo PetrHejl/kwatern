@@ -221,14 +221,21 @@ class WebServerTest {
 
     @Test
     void showsLivingPeopleWithoutDetails() throws Exception {
-        String handle = published.living().iterator().next();
-        Person original = full.people().get(handle).orElseThrow();
-        String body = get("/person/" + original.id(), null).body();
-        assertTrue(body.contains("<h1 class=\"living\">Living</h1>"));
-        assertFalse(body.contains("class=\"timeline\""), "no events");
-        String given = original.primaryName().first();
-        if (given != null && given.length() > 3) {
-            assertFalse(body.contains(given), "no given name");
+        // Every living person rather than one: the set's order changes from run to run, so a check that fails for a
+        // few people would fail at random.
+        for (String handle : published.living()) {
+            Person original = full.people().get(handle).orElseThrow();
+            String body = get("/person/" + original.id(), null).body();
+            assertTrue(body.contains("<h1 class=\"living\">Living</h1>"), original.id());
+            assertFalse(body.contains("class=\"timeline\""), original.id() + ": no events");
+            String given = original.primaryName().first();
+            if (given != null && given.length() > 3) {
+                // Links to relatives go: one may have the same given name, such as a father whose son is alive.
+                String own = Pattern.compile("(?s)<a [^>]*href=\"/person/(?!" + original.id() + "[\"/]).*?</a>")
+                        .matcher(body)
+                        .replaceAll("");
+                assertFalse(own.contains(given), original.id() + ": no given name");
+            }
         }
     }
 
