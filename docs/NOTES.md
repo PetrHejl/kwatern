@@ -63,7 +63,9 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   - `image` (JPEG decoding and encoding for thumbnails) has none; see "Images" below.
 - **Build:** Gradle with the Groovy DSL. Formatting with Spotless and Palantir Java Format;
   `spotlessCheck` runs in CI. Tests run on the JVM (`test`) and compiled into native executables
-  (`nativeTest`, about 3 minutes), which catches missing Native Image configuration.
+  (`nativeTest`, about 3 minutes), which catches missing Native Image configuration. `:server:pages` fingerprints
+  every page of a tree (61,000 addresses of the example tree in 37 s) and compares with an earlier run, so a
+  refactoring can show that the site stays byte for byte the same; it was a script for the split of `Views`.
 - **CI and releases:** GitHub Actions. `build.yml` runs `spotlessCheck test` on every push and pull request,
   then (not for pull requests) `nativeTest`, the native binary and its `--check`. `release.yml` runs for a tag
   `v<version>` (the version lives in `gradle.properties`; the tag must match): Linux x64 and arm64 binaries built
