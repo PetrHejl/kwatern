@@ -2,6 +2,7 @@ package me.hejl.kwatern.auth;
 
 import java.util.ArrayList;
 import java.util.List;
+import me.hejl.gramps.privacy.PrivacyOptions;
 
 /**
  * What a member sees beyond the public view: people who may be alive, records marked private in Gramps, both or
@@ -14,6 +15,14 @@ public record Grants(boolean living, boolean privateRecords) {
     /** Every combination; the server builds a view for each, so that a change of the users file needs none. */
     public static final List<Grants> ALL =
             List.of(NONE, new Grants(true, false), new Grants(false, true), new Grants(true, true));
+
+    /**
+     * What members with these grants see: what the base view shows and what they are granted, so never less than
+     * the base.
+     */
+    public PrivacyOptions over(PrivacyOptions base) {
+        return new PrivacyOptions(base.hideLiving() && !living, base.hidePrivate() && !privateRecords);
+    }
 
     /** Reads the users file's form; fails on anything else. */
     public static Grants parse(String text) {

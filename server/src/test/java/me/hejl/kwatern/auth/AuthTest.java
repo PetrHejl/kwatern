@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import me.hejl.gramps.privacy.PrivacyOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -72,6 +73,27 @@ class AuthTest {
                 new String[] {"", "x", "md5$1$a$b", "pbkdf2-sha256$99999999$AAAAAAAAAAA$AAAA", "pbkdf2-sha256$x$a$b"}) {
             assertFalse(PasswordHash.wellFormed(bad), bad);
             assertFalse(PasswordHash.verify("right password".toCharArray(), bad), bad);
+        }
+    }
+
+    @Test
+    void grantsAddToWhatTheBaseShows() {
+        assertEquals(new PrivacyOptions(false, true), new Grants(true, false).over(PrivacyOptions.DEFAULT));
+        assertEquals(new PrivacyOptions(true, false), new Grants(false, true).over(PrivacyOptions.DEFAULT));
+        assertEquals(PrivacyOptions.DEFAULT, Grants.NONE.over(PrivacyOptions.DEFAULT));
+        // Never less than the base, whatever is granted.
+        for (PrivacyOptions base : List.of(
+                PrivacyOptions.DEFAULT,
+                new PrivacyOptions(false, true),
+                new PrivacyOptions(true, false),
+                new PrivacyOptions(false, false))) {
+            for (Grants grants : Grants.ALL) {
+                PrivacyOptions options = grants.over(base);
+                assertFalse(options.hideLiving() && !base.hideLiving(), grants + " over " + base);
+                assertFalse(options.hidePrivate() && !base.hidePrivate(), grants + " over " + base);
+            }
+            assertEquals(base, Grants.NONE.over(base));
+            assertEquals(new PrivacyOptions(false, false), new Grants(true, true).over(base));
         }
     }
 

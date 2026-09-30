@@ -386,8 +386,7 @@ public final class Main implements Callable<Integer> {
         if (access == Login.Access.MEMBERS) {
             // Granted only what everyone sees anyway.
             int same = counts.entrySet().stream()
-                    .filter(e -> (living == Visibility.SHOW || !e.getKey().living())
-                            && (privateRecords == Visibility.SHOW || !e.getKey().privateRecords()))
+                    .filter(e -> e.getKey().over(publicOptions()).equals(publicOptions()))
                     .mapToInt(Map.Entry::getValue)
                     .sum();
             if (same > 0) {
