@@ -101,20 +101,20 @@ for Gramps Web, which also does much more (see [Why Kwatern](#why-kwatern)).
 Requires JDK 25; native builds need GraalVM 25.
 
 ```sh
-./gradlew test                                   # uses the Gramps example tree, downloaded on first run
-./gradlew test -PgrampsFile=/path/to/tree.gramps # also checks your own export (prints counts only)
-./gradlew :server:installDist                    # JVM build in server/build/install/kwatern
+./gradlew test                                     # uses the Gramps example tree, downloaded on first run
+./gradlew test -PgrampsFile=/path/to/family.gramps # also checks your own export (prints counts only)
+./gradlew :server:installDist                      # JVM build in server/build/install/kwatern
 GRAALVM_HOME=/path/to/graalvm ./gradlew :server:nativeCompile
 ```
 
 ## Run
 
 ```sh
-server/build/native/nativeCompile/kwatern tree.gramps --port 8080
-server/build/native/nativeCompile/kwatern tree.gramps --media-dir /srv/media   # where the photos are
-server/build/native/nativeCompile/kwatern tree.gramps --allow-media-anywhere   # your own tree, media anywhere
-server/build/native/nativeCompile/kwatern tree.gpkg                          # package: media extracted
-server/build/native/nativeCompile/kwatern tree.gramps --check   # load, print summary, exit
+server/build/native/nativeCompile/kwatern family.gramps --port 8080
+server/build/native/nativeCompile/kwatern family.gramps --media-dir /srv/media   # where the photos are
+server/build/native/nativeCompile/kwatern family.gramps --allow-media-anywhere   # your own tree, media anywhere
+server/build/native/nativeCompile/kwatern family.gpkg                            # package: media extracted
+server/build/native/nativeCompile/kwatern family.gramps --check                  # load, print summary, exit
 server/build/native/nativeCompile/kwatern --help
 ```
 
@@ -126,7 +126,7 @@ VPS a heap limit keeps it lower, at the cost of slightly more garbage collection
 for trees of a few thousand people, runs in about 80–100 MB:
 
 ```sh
-server/build/native/nativeCompile/kwatern -Xmx128m tree.gramps
+server/build/native/nativeCompile/kwatern -Xmx128m family.gramps
 ```
 
 Maps load their images from OpenStreetMap in visitors' browsers; `--map=off` turns them off and
@@ -144,8 +144,8 @@ Family members can sign in to see more than the public, for example people who m
 the members' view shows (by default living people, but not records marked private).
 
 ```sh
-kwatern passwd --users users.txt jana       # add a member or change their password
-kwatern tree.gramps --access=members --users users.txt --secret-file session.key --behind-proxy
+kwatern passwd --users users.txt tereza     # add a member or change their password
+kwatern family.gramps --access=members --users users.txt --secret-file session.key --behind-proxy
 ```
 
 Removing a member's line from `users.txt` signs them out; the file is read again when it changes. Without
