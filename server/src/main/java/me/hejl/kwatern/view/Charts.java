@@ -157,30 +157,41 @@ final class Charts {
         return new Fan((int) (2 * cx), (int) cy + 2, segments);
     }
 
+    /** How the bar of a life ends. */
+    enum End {
+        /** At the death. */
+        DEATH,
+        /** Today: the person may still be alive. */
+        ALIVE,
+        /** Unknown: the bar fades out after the last year the person is known to have lived. */
+        UNKNOWN
+    }
+
     /**
      * A life for the lifespan chart.
      *
      * @param group the heading of its group, such as "Parents"
-     * @param to    the year of death, or {@code null} if unknown
+     * @param to    the year of death, this year for someone who may be alive, or the last year someone is known to
+     *              have lived when the date of death is unknown
      */
-    record Life(String group, PersonLink person, int from, Integer to, String years, boolean self) {}
+    record Life(String group, PersonLink person, int from, int to, End end, String years, boolean self) {}
 
     private static final int LIFESPAN_WIDTH = 640;
     private static final int LIFESPAN_LEFT = 210;
     private static final int LIFESPAN_ROW = 32;
-    // How far a bar without a known end is drawn, in years.
-    private static final int OPEN_YEARS = 40;
+    private static final int BAR_HEIGHT = 20;
+    // Over how many years a bar without a known end fades out.
+    private static final int FADE_YEARS = 20;
 
     /** Bars on one time axis, grouped as given; the person's lifetime is a band behind them. */
-    static LifespanChart lifespans(List<Life> lives) {
+    static LifespanChart lifespans(List<Life> lives, int currentYear, String note) {
         int first = lives.stream().mapToInt(Life::from).min().orElse(0);
-        int last = lives.stream()
-                .mapToInt(l -> l.to() != null ? l.to() : l.from() + OPEN_YEARS)
-                .max()
-                .orElse(first);
+        int last = lives.stream().mapToInt(l -> stop(l, currentYear)).max().orElse(first);
         int step = last - first > 200 ? 40 : 20;
         int start = Math.floorDiv(first, step) * step;
-        int end = Math.max(start + step, -Math.floorDiv(-last, step) * step);
+        int ceiling = Math.max(start + step, -Math.floorDiv(-last, step) * step);
+        // The axis does not run into the future unless the dates do.
+        int end = Math.max(Math.max(last, start + 1), Math.min(ceiling, currentYear));
         // Room at the right for half of the last year label.
         double scale = (LIFESPAN_WIDTH - LIFESPAN_LEFT - 20.0) / (end - start);
         List<Tick> ticks = new ArrayList<>();
@@ -195,12 +206,14 @@ final class Charts {
         for (Life life : lives) {
             if (!life.group().equals(group)) {
                 group = life.group();
-                rows.add(new LifespanRow(y + 6, group, null, "", 0, 0, false, false, "", true));
+                rows.add(new LifespanRow(y + 6, group, null, "", 0, 0, "", 0, false, "", true));
                 y += LIFESPAN_ROW;
             }
-            int to = life.to() != null ? life.to() : Math.min(end, life.from() + OPEN_YEARS);
             int x = LIFESPAN_LEFT + (int) Math.round((life.from() - start) * scale);
-            int width = Math.max(3, (int) Math.round((to - life.from()) * scale));
+            int width = Math.max(3, (int) Math.round((stop(life, currentYear) - life.from()) * scale));
+            int fade = life.end() == End.UNKNOWN
+                    ? Math.min(x + width - 1, LIFESPAN_LEFT + (int) Math.round((life.to() - start) * scale))
+                    : 0;
             boolean after = x + width + 8 + life.years().length() * 9 <= LIFESPAN_WIDTH;
             rows.add(new LifespanRow(
                     y,
@@ -209,7 +222,8 @@ final class Charts {
                     shortenName(life.person().name(), 24),
                     x,
                     width,
-                    life.to() == null,
+                    bar(x, y + 6, width, life.end() == End.ALIVE),
+                    fade,
                     life.self(),
                     life.years(),
                     after));
@@ -219,7 +233,52 @@ final class Charts {
             }
             y += LIFESPAN_ROW;
         }
-        return new LifespanChart(LIFESPAN_WIDTH, y + 4, LIFESPAN_LEFT, bandX, bandWidth, ticks, rows);
+        return new LifespanChart(LIFESPAN_WIDTH, y + 4, LIFESPAN_LEFT, bandX, bandWidth, ticks, rows, note);
+    }
+
+    /** The year where the bar of a life stops. */
+    private static int stop(Life life, int currentYear) {
+        if (life.end() != End.UNKNOWN) {
+            return life.to();
+        }
+        return Math.max(life.to(), Math.min(life.to() + FADE_YEARS, currentYear));
+    }
+
+    /** A bar with rounded corners, or with a point at the right end for a life that goes on. */
+    private static String bar(int x, int y, int width, boolean pointed) {
+        double r = Math.min(4, width / 2.0);
+        int tip = pointed && width > 12 ? 6 : 0;
+        int right = x + width;
+        int bottom = y + BAR_HEIGHT;
+        String end = tip > 0
+                ? "H%d L%d %s L%d %d".formatted(right - tip, right, number(y + BAR_HEIGHT / 2.0), right - tip, bottom)
+                : "H%s A%s %s 0 0 1 %d %s V%s A%s %s 0 0 1 %s %d"
+                        .formatted(
+                                number(right - r),
+                                number(r),
+                                number(r),
+                                right,
+                                number(y + r),
+                                number(bottom - r),
+                                number(r),
+                                number(r),
+                                number(right - r),
+                                bottom);
+        return "M%s %d %s H%s A%s %s 0 0 1 %d %s V%s A%s %s 0 0 1 %s %d Z"
+                .formatted(
+                        number(x + r),
+                        y,
+                        end,
+                        number(x + r),
+                        number(r),
+                        number(r),
+                        x,
+                        number(bottom - r),
+                        number(y + r),
+                        number(r),
+                        number(r),
+                        number(x + r),
+                        y);
     }
 
     private static String point(double cx, double cy, double radius, double angle) {

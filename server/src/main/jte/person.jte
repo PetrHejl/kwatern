@@ -34,15 +34,21 @@
                 @if(!r.heading().isEmpty())
                 <text class="group" x="0" y="${r.y() + 12}">${r.heading()}</text>
                 @else
-                <a href="${r.person().url()}"><g class="life ${r.person().gender()}${r.self() ? " self" : ""}${r.open() ? " open" : ""}"><title>${r.person().name()}</title>
+                @if(r.fade() > 0)
+                <defs>
+                    <linearGradient id="lifespan-fade-${r.y()}-gradient" gradientUnits="userSpaceOnUse" x1="${r.fade()}" x2="${r.x() + r.width()}"><stop offset="0" stop-color="white"></stop><stop offset="1" stop-color="black"></stop></linearGradient>
+                    <mask id="lifespan-fade-${r.y()}" maskUnits="userSpaceOnUse"><rect x="${r.x() - 1}" y="${r.y() + 5}" width="${r.width() + 2}" height="22" fill="url(#lifespan-fade-${r.y()}-gradient)"></rect></mask>
+                </defs>
+                @endif
+                <a href="${r.person().url()}"><g class="life ${r.person().gender()}${r.self() ? " self" : ""}"><title>${r.person().name()}</title>
                     <text class="name" x="0" y="${r.y() + 21}">${r.name()}</text>
-                    <rect x="${r.x()}" y="${r.y() + 6}" width="${r.width()}" height="20" rx="4"></rect>
+                    <path class="bar" d="${r.bar()}" mask="${r.fade() > 0 ? "url(#lifespan-fade-" + r.y() + ")" : null}"></path>
                     <text class="years" x="${r.after() ? r.x() + r.width() + 6 : r.x() - 6}" y="${r.y() + 21}" text-anchor="${r.after() ? "start" : "end"}">${r.years()}</text>
                 </g></a>
                 @endif
                 @endfor
             </svg>
-            <p class="card-note">${ui.t("lifespans.note")}</p>
+            <p class="card-note">${page.lifespans().note()}</p>
         </section>
         @endif
         @template.part.details(ui = ui, attributes = page.attributes(), notes = page.notes(), sources = page.sources())

@@ -66,15 +66,15 @@ public final class PrivacyFilter {
     }
 
     public static PublicDatabase apply(GrampsDatabase db, ProbablyAlive alive, PrivacyOptions options) {
-        Set<String> living = new HashSet<>();
-        if (options.hideLiving()) {
-            for (Person person : db.people().all()) {
-                if (!(options.hidePrivate() && person.priv()) && alive.isAlive(person)) {
-                    living.add(person.handle());
-                }
+        Set<String> mayBeAlive = new HashSet<>();
+        for (Person person : db.people().all()) {
+            if (!(options.hidePrivate() && person.priv()) && alive.isAlive(person)) {
+                mayBeAlive.add(person.handle());
             }
         }
-        return new PublicDatabase(new PrivacyFilter(db, living, options.hidePrivate()).filter(), living);
+        // A HashSet, since families without a father or mother look up null.
+        Set<String> living = options.hideLiving() ? mayBeAlive : new HashSet<>();
+        return new PublicDatabase(new PrivacyFilter(db, living, options.hidePrivate()).filter(), living, mayBeAlive);
     }
 
     private GrampsDatabase filter() {

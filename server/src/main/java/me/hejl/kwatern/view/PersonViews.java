@@ -1,12 +1,14 @@
 package me.hejl.kwatern.view;
 
 import java.time.Period;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -204,14 +206,15 @@ final class PersonViews extends ViewPart {
 
     /** The lifespans of the person and their close family, or {@code null} if fewer than three are known. */
     private LifespanChart lifespans(Person person, List<Relative> relatives) {
+        int currentYear = Year.now().getValue();
         List<Charts.Life> lives = new ArrayList<>();
         for (String group : List.of("parents", "couple", "siblings", "children")) {
             if (group.equals("couple")) {
-                life(person, ui.t("lifespans.group.couple"), true).ifPresent(lives::add);
+                life(person, ui.t("lifespans.group.couple"), true, currentYear).ifPresent(lives::add);
             }
             for (Relative relative : relatives) {
                 if (relative.group().equals(group)) {
-                    life(relative.person(), ui.t("lifespans.group." + group), false)
+                    life(relative.person(), ui.t("lifespans.group." + group), false, currentYear)
                             .ifPresent(lives::add);
                 }
             }
@@ -219,10 +222,19 @@ final class PersonViews extends ViewPart {
         if (lives.size() < 3 || lives.stream().noneMatch(Charts.Life::self)) {
             return null;
         }
-        return Charts.lifespans(lives);
+        List<String> note = new ArrayList<>(List.of(ui.t("lifespans.note.band")));
+        for (Charts.End end : List.of(Charts.End.UNKNOWN, Charts.End.ALIVE)) {
+            if (lives.stream().anyMatch(l -> l.end() == end)) {
+                note.add(ui.t("lifespans.note." + end.name().toLowerCase(Locale.ROOT)));
+            }
+        }
+        if (!data.living().isEmpty()) {
+            note.add(ui.t("lifespans.note.hidden"));
+        }
+        return Charts.lifespans(lives, currentYear, String.join(" ", note));
     }
 
-    private Optional<Charts.Life> life(Person person, String group, boolean self) {
+    private Optional<Charts.Life> life(Person person, String group, boolean self, int currentYear) {
         Event birth = firstEvent(person, BIRTH);
         if (data.isLiving(person.handle()) || birth == null || birth.date() == null) {
             return Optional.empty();
@@ -232,11 +244,41 @@ final class PersonViews extends ViewPart {
             return Optional.empty();
         }
         Event death = firstEvent(person, DEATH);
-        OptionalInt to =
+        OptionalInt died =
                 death == null || death.date() == null ? OptionalInt.empty() : DateMath.gregorianYear(death.date());
+        Charts.End end;
+        int to;
+        if (died.isPresent()) {
+            end = Charts.End.DEATH;
+            to = died.getAsInt();
+        } else if (death == null && data.mayBeAlive(person.handle())) {
+            end = Charts.End.ALIVE;
+            to = Math.max(from.getAsInt(), currentYear);
+        } else {
+            end = Charts.End.UNKNOWN;
+            to = Math.max(from.getAsInt(), lastKnownYear(person));
+        }
         PersonLink link = link(person);
-        return Optional.of(new Charts.Life(
-                group, link, from.getAsInt(), to.isPresent() ? to.getAsInt() : null, link.lifespan(), self));
+        return Optional.of(new Charts.Life(group, link, from.getAsInt(), to, end, link.lifespan(), self));
+    }
+
+    /** The latest year of the person's own and their families' dated events, or 0 if none is dated. */
+    private int lastKnownYear(Person person) {
+        List<EventRef> refs = new ArrayList<>(person.eventRefs());
+        for (String familyHandle : person.families()) {
+            db.families().get(familyHandle).ifPresent(family -> refs.addAll(family.eventRefs()));
+        }
+        int last = 0;
+        for (EventRef ref : refs) {
+            Event event = db.events().get(ref.event()).orElse(null);
+            if (event != null && event.date() != null) {
+                OptionalInt year = DateMath.gregorianYear(event.date());
+                if (year.isPresent()) {
+                    last = Math.max(last, year.getAsInt());
+                }
+            }
+        }
+        return last;
     }
 
     PersonHero hero(Person person, Tabs active) {

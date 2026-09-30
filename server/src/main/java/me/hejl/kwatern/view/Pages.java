@@ -180,7 +180,10 @@ public final class Pages {
     /**
      * A row of the lifespan chart: a group heading, or a person's bar.
      *
-     * @param open  no known end: the bar fades out
+     * @param x     where the bar starts
+     * @param width how long the bar is
+     * @param bar   the SVG path of the bar
+     * @param fade  where the bar starts to fade out when the date of death is unknown, or 0 if it does not
      * @param self  the person the page is about
      * @param after whether the years go after the bar, or before it when there is no room
      */
@@ -191,14 +194,26 @@ public final class Pages {
             String name,
             int x,
             int width,
-            boolean open,
+            String bar,
+            int fade,
             boolean self,
             String years,
             boolean after) {}
 
-    /** Lifespans of a family on one time axis, in SVG coordinates; the band marks the person's lifetime. */
+    /**
+     * Lifespans of a family on one time axis, in SVG coordinates; the band marks the person's lifetime.
+     *
+     * @param note what the chart shows, for the sorts of bars it has
+     */
     public record LifespanChart(
-            int width, int height, int left, int bandX, int bandWidth, List<Tick> ticks, List<LifespanRow> rows) {}
+            int width,
+            int height,
+            int left,
+            int bandX,
+            int bandWidth,
+            List<Tick> ticks,
+            List<LifespanRow> rows,
+            String note) {}
 
     /**
      * @param familyEvents whether the timeline includes events of the family
