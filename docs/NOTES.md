@@ -267,8 +267,8 @@ In the server (`web/MediaImages`):
   otherwise the initials remain.
 - **Cache:** made on first request, at most two at a time in the whole process. Until 2026-09-29 the limit was per
   view, so with a login, and while a new version was being loaded, four or more large images could be decoded at
-  once (up to 64 MB of coefficients each). The images are made once for both views: they depend only on the media
-  object and its file, so the members' view and the public one share them (`MediaImages.forView`), each reaching
+  once (up to 64 MB of coefficients each). The images are made once for all views: they depend only on the media
+  object and its file, so the members' views and the public one share them (`MediaImages.forView`), each reaching
   only its own media. Originals have an ETag too. Thumbnails and portraits stay in memory for the
   life of the process; the larger images of media pages only up to 24 MB, the most recently used.
   - Requests for an image while it is being made wait for it rather than make it again. The larger images did
@@ -351,20 +351,31 @@ Optional signing in, added 2026-09-28. The design and the sign-in page are on th
 
 - **Modes** (`--access`):
   - `open` (default): no login, as before.
-  - `members`: a public view for everyone, plus a members' view after signing in.
+  - `members`: a public view for everyone, plus what each member is granted after signing in.
   - `private`: nothing without signing in. Every address redirects to `/sign-in?next=...`, whether it exists
     or not, so nothing can be probed. The sign-in page shows only the brand, never the tree's name, counts or
     surnames.
-- **Two filtered sites, not per-page checks.** The export is parsed once and filtered twice, into
+- **Filtered sites, not per-page checks.** The export is parsed once and filtered once for each view, into
   `Sites(everyone, members)`, each with its own search index; they share the images; the session picks one per
   request.
   - A mistake in a template cannot leak a living person into the public view, because it does not contain
-    them.
-  - What each view shows: `--living` and `--private` for the public view, `--members-living` (default show)
-    and `--members-private` (default hide) for members. Members must see at least what the public sees.
-  - Cost on the real export: 2 MB more heap and 3 MB more RSS.
-- **Users file:** `name:hash` lines, written by `kwatern passwd --users FILE NAME`. It replaces the
-  member's line in place and creates the file readable by its owner only.
+    them; nor into the view of a member not granted living people.
+  - What each view shows: `--living` and `--private` for the public view. Each member's line in the users file
+    grants `living`, `private`, both or nothing (`Grants`), set with `kwatern passwd --living=show
+    --private=show`; a member sees the public view plus what they are granted. On a private site the base is
+    the safe default, so the public options do not matter there. A member can so never see less than the public.
+  - Per member since 2026-09-30, replacing `--members-living` and `--members-private`, which set one members'
+    view for all. With only two switches there are four possible views, so all four are built at every load,
+    views that come out the same (such as the public one and "granted nothing") only once. A change of the
+    users file then needs no new views: the grants are looked up with the session on each request and apply
+    at once, without signing in again. The grants are not in the cookie for the same reason.
+  - Cost: about 2 MB of heap per view on the real export (measured with one members' view); on the example
+    tree 23 MB instead of 21 with all four.
+  - Startup prints each view with who sees it, the members by grants, and a warning for members granted nothing
+    beyond what everyone sees.
+- **Users file:** `name:grants:hash` lines, written by `kwatern passwd --users FILE NAME`. It replaces the
+  member's line in place and creates the file readable by its owner only. `--keep-password` changes only the
+  grants of an existing member, keeping the hash and so their sessions.
   - Hashing is PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2023) and a 16-byte salt. Argon2 would need
     a library.
   - A check takes about 0.6 s in the native binary; two run at a time at most.

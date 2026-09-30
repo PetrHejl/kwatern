@@ -139,14 +139,18 @@ the server then prints a warning at startup.
 ### Signing in
 
 Family members can sign in to see more than the public, for example people who may be alive. With
-`--access=members` everyone sees the public view and members who sign in see the members' view; with
-`--access=private` only members who sign in see anything. `--members-living` and `--members-private` set what
-the members' view shows (by default living people, but not records marked private).
+`--access=members` everyone sees the public view and members who sign in see more; with `--access=private` only
+members who sign in see anything. What each member sees beyond the public view is set with `kwatern passwd`:
+`--living=show` for people who may be alive, `--private=show` for records marked private in Gramps. Without
+them a member sees only the public view (on a private site, what a public view shows by default).
 
 ```sh
-kwatern passwd --users users.txt tereza     # add a member or change their password
+kwatern passwd --users users.txt --living=show tereza   # add a member or change their password
+kwatern passwd --users users.txt --living=show --private=show --keep-password tereza   # only what she sees
 kwatern family.gramps --access=members --users users.txt --secret-file session.key --behind-proxy
 ```
+
+A change of what a member sees applies at once, without signing in again.
 
 Removing a member's line from `users.txt` signs them out; the file is read again when it changes. Without
 `--secret-file` members sign in again after each restart.

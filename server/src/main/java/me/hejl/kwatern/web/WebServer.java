@@ -41,12 +41,12 @@ public final class WebServer {
      */
     public WebServer(Version version, Login login) {
         Sites sites = version.sites();
-        if (login == null ? sites.everyone() == null : sites.members() == null) {
+        if (login == null ? sites.everyone() == null : !sites.hasMembers()) {
             throw new IllegalArgumentException("the sites do not match the login");
         }
         this.current = version;
         this.login = login;
-        this.responses = new Responses(login, sites.any().options().map());
+        this.responses = new Responses(login, sites.widest().options().map());
         this.pages = new PageRoutes(responses);
         this.signIn = login == null ? null : new SignIn(login, pages);
     }
@@ -133,13 +133,14 @@ public final class WebServer {
                         : "?" + exchange.getRequestURI().getRawQuery());
         Viewer viewer =
                 login == null ? Viewer.OPEN : new Viewer(login.access(), session == null ? null : session.user(), here);
-        Site site = session != null ? sites.members() : sites.everyone();
+        Site site = session != null ? sites.members(session.grants()) : sites.everyone();
         if (signIn != null) {
             responses.withLogin(exchange);
             signIn.renew(exchange, session);
         }
         if (form) {
-            signIn.serve(new Request(exchange, site != null ? site : sites.members(), viewer, session != null));
+            // The sign-in page of a private site shows nothing of the tree, whichever view it is made from.
+            signIn.serve(new Request(exchange, site != null ? site : sites.widest(), viewer, session != null));
             return;
         }
         if (site == null) {

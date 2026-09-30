@@ -35,6 +35,7 @@ class AuthTest {
 
     // Few iterations keep the tests fast; the format and the check are the same.
     private static final String HASH = PasswordHash.hash("right password".toCharArray(), 1_000);
+    private static final Users.Member MEMBER = new Users.Member(Grants.NONE, HASH);
 
     /** A clock the test moves by hand. */
     private static final class TestClock extends Clock {
@@ -76,51 +77,67 @@ class AuthTest {
 
     @Test
     void readsTheUsersFile(@TempDir Path directory) throws Exception {
-        Map<String, String> users = Users.parse(List.of("# members", "", "jana:" + HASH, "  petr@hejl.me:" + HASH));
-        assertEquals(2, users.size());
+        Map<String, Users.Member> users = Users.parse(List.of(
+                "# members", "", "jana::" + HASH, "  petr@hejl.me:private,living:" + HASH, "eva:private:" + HASH));
+        assertEquals(
+                Map.of(
+                        "jana", MEMBER,
+                        "petr@hejl.me", new Users.Member(new Grants(true, true), HASH),
+                        "eva", new Users.Member(new Grants(false, true), HASH)),
+                users);
         assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana")));
-        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:secret")));
-        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("ja na:" + HASH)));
-        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:" + HASH, "jana:" + HASH)));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana::secret")));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:" + HASH)), "no grants");
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:all:" + HASH)));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:living,:" + HASH)));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana:living,living:" + HASH)));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("ja na::" + HASH)));
+        assertThrows(IllegalArgumentException.class, () -> Users.parse(List.of("jana::" + HASH, "jana::" + HASH)));
+        for (Grants grants : Grants.ALL) {
+            assertEquals(grants, Grants.parse(grants.toString()));
+        }
         assertTrue(Users.validName("Jiří.Novák"));
         assertFalse(Users.validName("a:b"));
         assertFalse(Users.validName("x".repeat(65)));
 
         Path file = directory.resolve("users.txt");
-        Users.put(file, "jana", HASH);
+        Users.put(file, "jana", MEMBER);
         Files.writeString(file, "# comment\n" + Files.readString(file));
-        Users.put(file, "petr", HASH);
+        Users.put(file, "petr", MEMBER);
         String other = PasswordHash.hash("another one".toCharArray(), 1_000);
-        Users.put(file, "jana", other);
+        Users.put(file, "jana", new Users.Member(new Grants(true, false), other));
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-        assertEquals(List.of("# comment", "jana:" + other, "petr:" + HASH), lines, "replaced in place, comment kept");
+        assertEquals(
+                List.of("# comment", "jana:living:" + other, "petr::" + HASH),
+                lines,
+                "replaced in place, comment kept");
 
         Users loaded = Users.load(file);
-        assertEquals(other, loaded.hash("jana"));
-        assertNull(loaded.hash("nobody"));
+        assertEquals(new Users.Member(new Grants(true, false), other), loaded.member("jana"));
+        assertNull(loaded.member("nobody"));
     }
 
     @Test
     void replacesTheUsersFileWhole(@TempDir Path directory) throws Exception {
         Path file = directory.resolve("users.txt");
-        Users.put(file, "jana", HASH);
+        Users.put(file, "jana", MEMBER);
         assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(file));
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-r-----"));
         Object before = Files.readAttributes(file, BasicFileAttributes.class).fileKey();
 
-        Users.put(file, "petr", HASH);
+        Users.put(file, "petr", MEMBER);
         // A new file moved over the old one: written in place, a crash while writing lost every member.
         assertNotEquals(
                 before, Files.readAttributes(file, BasicFileAttributes.class).fileKey());
         assertEquals(PosixFilePermissions.fromString("rw-r-----"), Files.getPosixFilePermissions(file), "kept");
-        assertEquals(List.of("jana:" + HASH, "petr:" + HASH), Files.readAllLines(file));
+        assertEquals(List.of("jana::" + HASH, "petr::" + HASH), Files.readAllLines(file));
         try (var files = Files.list(directory)) {
             assertEquals(List.of(file), files.toList(), "nothing left beside it");
         }
 
         // A link to the file stays a link, and the file it points to changes.
         Path link = Files.createSymbolicLink(directory.resolve("link.txt"), file);
-        Users.put(link, "eva", HASH);
+        Users.put(link, "eva", MEMBER);
         assertTrue(Files.isSymbolicLink(link));
         assertEquals(3, Files.readAllLines(file).size());
     }
@@ -128,7 +145,7 @@ class AuthTest {
     @Test
     void signsSessions() {
         var clock = new TestClock();
-        Users users = Users.of(Map.of("jana", HASH));
+        Users users = Users.of(Map.of("jana", MEMBER));
         byte[] key = Sessions.randomKey();
         var sessions = new Sessions(key, users, clock);
 
@@ -152,9 +169,18 @@ class AuthTest {
         assertNull(sessions.check("a.b.c.d"));
 
         // A new password, or a removed user, ends the session.
-        var changed = new Sessions(key, Users.of(Map.of("jana", HASH + "x")), clock);
+        var changed = new Sessions(key, Users.of(Map.of("jana", new Users.Member(Grants.NONE, HASH + "x"))), clock);
         assertNull(changed.check(cookie));
         assertNull(new Sessions(key, Users.of(Map.of()), clock).check(cookie));
+
+        // What the user sees comes from the users file, so a change applies to the cookie they have.
+        assertEquals(Grants.NONE, session.grants());
+        var granted = new Grants(true, false);
+        assertEquals(
+                granted,
+                new Sessions(key, Users.of(Map.of("jana", new Users.Member(granted, HASH))), clock)
+                        .check(cookie)
+                        .grants());
 
         // Expired.
         String browserOnly = sessions.issue("jana", false);
@@ -191,8 +217,8 @@ class AuthTest {
         var clock = new TestClock();
         var login = new Login(
                 Login.Access.MEMBERS,
-                Users.of(Map.of("jana", HASH)),
-                new Sessions(Sessions.randomKey(), Users.of(Map.of("jana", HASH)), clock),
+                Users.of(Map.of("jana", MEMBER)),
+                new Sessions(Sessions.randomKey(), Users.of(Map.of("jana", MEMBER)), clock),
                 false,
                 clock);
         char[] wrong = "wrong password".toCharArray();
@@ -261,8 +287,8 @@ class AuthTest {
     void checksNoMoreGuessesSentAtOnceThanAreFree() throws Exception {
         var login = new Login(
                 Login.Access.MEMBERS,
-                Users.of(Map.of("jana", HASH)),
-                new Sessions(Sessions.randomKey(), Users.of(Map.of("jana", HASH))),
+                Users.of(Map.of("jana", MEMBER)),
+                new Sessions(Sessions.randomKey(), Users.of(Map.of("jana", MEMBER))),
                 false);
         var go = new CountDownLatch(1);
         List<Future<Login.Result>> results = new ArrayList<>();

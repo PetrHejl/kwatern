@@ -4,11 +4,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.privacy.AliveRules;
@@ -21,6 +25,7 @@ import me.hejl.gramps.xml.GrampsParseException;
 import me.hejl.gramps.xml.GrampsXml;
 import me.hejl.gramps.xml.ParseResult;
 import me.hejl.image.ImageDecoders;
+import me.hejl.kwatern.auth.Grants;
 import me.hejl.kwatern.auth.Login;
 import me.hejl.kwatern.web.MediaImages;
 import me.hejl.kwatern.web.Site;
@@ -44,7 +49,6 @@ final class Loader {
             int maxAge,
             Login.Access access,
             PrivacyOptions publicOptions,
-            PrivacyOptions membersOptions,
             Path mediaDir,
             boolean allowMediaAnywhere,
             Path extractDir,
@@ -112,39 +116,56 @@ final class Loader {
         GrampsDatabase full = result.database();
         var rules = AliveRules.DEFAULTS.withMaxAge(settings.maxAge());
         var alive = new ProbablyAlive(full, rules, LocalDate.now().getYear());
-        PublicDatabase everyone = settings.access() == Login.Access.PRIVATE
-                ? null
-                : PrivacyFilter.apply(full, alive, settings.publicOptions());
-        PublicDatabase members = settings.access() == Login.Access.OPEN
-                ? null
-                : PrivacyFilter.apply(full, alive, settings.membersOptions());
+        // Views that show the same are filtered once and served as one site.
+        Map<PrivacyOptions, PublicDatabase> views = new LinkedHashMap<>();
+        Function<PrivacyOptions, PublicDatabase> view =
+                options -> views.computeIfAbsent(options, o -> PrivacyFilter.apply(full, alive, o));
+        boolean open = settings.access() == Login.Access.OPEN;
+        PublicDatabase everyone =
+                settings.access() == Login.Access.PRIVATE ? null : view.apply(settings.publicOptions());
+        Map<Grants, PrivacyOptions> memberOptions = new LinkedHashMap<>();
+        if (!open) {
+            Grants.ALL.forEach(grants -> memberOptions.put(grants, membersOptions(grants)));
+            memberOptions.values().forEach(view::apply);
+        }
+        // Showing living people and private records, it has all the other views have.
+        PublicDatabase widest = open ? everyone : view.apply(membersOptions(new Grants(true, true)));
         long loadMillis = (System.nanoTime() - start) / 1_000_000;
 
         result.warnings().forEach(w -> System.err.println("warning: " + w));
-        System.out.print(summary(members != null ? members.database() : everyone.database(), loadMillis));
-        if (everyone != null) {
-            System.out.print(
-                    privacySummary(members != null ? "public view" : null, full, everyone, settings.publicOptions()));
-        }
-        if (members != null) {
-            System.out.print(privacySummary("members' view", full, members, settings.membersOptions()));
-        }
+        System.out.print(summary(widest.database(), loadMillis));
+        views.forEach((options, published) -> {
+            List<String> who = new ArrayList<>();
+            if (everyone != null && options.equals(settings.publicOptions())) {
+                who.add("public view");
+            }
+            memberOptions.forEach((grants, o) -> {
+                if (o.equals(options)) {
+                    who.add("members granted " + (grants.equals(Grants.NONE) ? "nothing" : grants));
+                }
+            });
+            System.out.print(privacySummary(open ? null : String.join(", ", who), full, published, options));
+        });
         Path directory = null;
         try {
             if (isPackage) {
-                directory = extract(everyone, members);
+                directory = extract(widest);
             }
             String exportMediaPath = expandHome(full.header().mediaPath());
-            // One set of images for both views, each reaching only its own media: they are made once.
-            MediaImages images =
-                    mediaImages(members != null ? members : everyone, isPackage, directory, exportMediaPath);
-            Sites sites = new Sites(
-                    everyone == null ? null : new Site(everyone, settings.site(), images.forView(everyone.database())),
-                    members == null ? null : new Site(members, settings.site(), images));
-            // The members' view has all the public one has.
-            long outside = sites.members() != null
-                    ? sites.members().images().outsideMediaDir()
-                    : sites.everyone().images().outsideMediaDir();
+            // One set of images for all views, each reaching only its own media: they are made once.
+            MediaImages images = mediaImages(widest, isPackage, directory, exportMediaPath);
+            Map<PrivacyOptions, Site> sites = new HashMap<>();
+            Function<PrivacyOptions, Site> site = options -> sites.computeIfAbsent(options, o -> {
+                PublicDatabase published = views.get(o);
+                return new Site(
+                        published,
+                        settings.site(),
+                        published == widest ? images : images.forView(published.database()));
+            });
+            Map<Grants, Site> members = new HashMap<>();
+            memberOptions.forEach((grants, options) -> members.put(grants, site.apply(options)));
+            var version = new Sites(everyone == null ? null : site.apply(settings.publicOptions()), members);
+            long outside = version.widest().images().outsideMediaDir();
             if (outside > 0) {
                 // The media path an export sets is not printed: it may hold a name, as in /home/novak/Family tree.
                 String where = settings.mediaDir() != null
@@ -158,7 +179,7 @@ final class Loader {
                         outside, where);
             }
             Path media = directory;
-            return new Version(sites, media == null ? () -> {} : () -> remove(media));
+            return new Version(version, media == null ? () -> {} : () -> remove(media));
         } catch (IOException | RuntimeException e) {
             if (directory != null) {
                 remove(directory);
@@ -180,18 +201,27 @@ final class Loader {
     }
 
     /**
-     * Extracts the media files of a package that are published in either view, never the others, and returns
+     * What members with these grants see: what everyone sees and what they are granted. On a private site, where
+     * nobody else sees anything, what they are granted beyond the safe defaults.
+     */
+    private PrivacyOptions membersOptions(Grants grants) {
+        PrivacyOptions base =
+                settings.access() == Login.Access.PRIVATE ? PrivacyOptions.DEFAULT : settings.publicOptions();
+        return new PrivacyOptions(
+                base.hideLiving() && !grants.living(), base.hidePrivate() && !grants.privateRecords());
+    }
+
+    /**
+     * Extracts the media files of a package that are published in the widest view, never the others, and returns
      * the directory.
      */
-    private Path extract(PublicDatabase... views) throws IOException {
+    private Path extract(PublicDatabase widest) throws IOException {
         // A new directory for every load, so that a reload never changes the files being served.
         Path directory = settings.extractDir() != null
                 ? Files.createTempDirectory(Files.createDirectories(settings.extractDir()), "kwatern-media")
                 : Files.createTempDirectory("kwatern-media");
         extracted.add(directory);
-        Set<String> names = Arrays.stream(views)
-                .filter(Objects::nonNull)
-                .flatMap(view -> view.database().media().all().stream())
+        Set<String> names = widest.database().media().all().stream()
                 .map(m -> GrampsPackage.archiveName(m.path()))
                 .collect(Collectors.toSet());
         long start = System.nanoTime();

@@ -5,7 +5,7 @@ import java.time.Duration;
 import java.util.concurrent.Semaphore;
 
 /**
- * Signing in: who may see the members' view, and how that is checked. Thread-safe.
+ * Signing in: who may see more than the public view, and how that is checked. Thread-safe.
  *
  * @see Access
  */
@@ -15,9 +15,9 @@ public final class Login {
     public enum Access {
         /** Everyone sees the public view; there is no signing in. */
         OPEN,
-        /** Everyone sees the public view; members who sign in see the members' view. */
+        /** Everyone sees the public view; members who sign in also what they are granted. */
         MEMBERS,
-        /** Only members who sign in see anything, the members' view. */
+        /** Only members who sign in see anything, what they are granted. */
         PRIVATE
     }
 
@@ -88,11 +88,11 @@ public final class Login {
         try {
             checks.acquireUninterruptibly();
             try {
-                String hash = name.isEmpty() ? null : users.hash(name);
-                if (hash == null) {
+                Users.Member member = name.isEmpty() ? null : users.member(name);
+                if (member == null) {
                     PasswordHash.verifyNothing(password);
                 } else {
-                    right = PasswordHash.verify(password, hash);
+                    right = PasswordHash.verify(password, member.hash());
                 }
             } finally {
                 checks.release();

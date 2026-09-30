@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +40,7 @@ class MainTest {
         assertEquals(0, run.exitCode());
         assertTrue(run.out().startsWith("""
                 Usage: kwatern [OPTIONS] EXPORT
-                       kwatern passwd --users=FILE NAME
+                       kwatern passwd --users=FILE [OPTIONS] NAME
                        kwatern help [COMMAND]
                 """), run.out());
     }
@@ -67,6 +69,34 @@ class MainTest {
         Run run = run("passwd", "--users=users.txt");
         assertEquals(2, run.exitCode());
         assertTrue(run.err().contains("Try 'kwatern passwd --help'"), run.err());
+    }
+
+    @Test
+    void passwdSetsWhatAMemberSees(@TempDir Path directory) throws IOException {
+        Path file = directory.resolve("users.txt");
+        InputStream in = System.in;
+        try {
+            System.setIn(new ByteArrayInputStream("a long password\n".getBytes(StandardCharsets.UTF_8)));
+            assertEquals(
+                    0,
+                    run("passwd", "--users", file.toString(), "--living=show", "tereza")
+                            .exitCode());
+        } finally {
+            System.setIn(in);
+        }
+        String line = Files.readString(file).strip();
+        assertTrue(line.startsWith("tereza:living:pbkdf2-sha256$"), "hash not shown");
+
+        assertEquals(
+                0,
+                run("passwd", "--users", file.toString(), "--private=show", "--keep-password", "tereza")
+                        .exitCode());
+        assertEquals(
+                line.replace(":living:", ":private:"), Files.readString(file).strip(), "the same password");
+
+        Run nobody = run("passwd", "--users", file.toString(), "--keep-password", "jana");
+        assertEquals(2, nobody.exitCode());
+        assertTrue(nobody.err().contains("jana is not in"), nobody.err());
     }
 
     @Test

@@ -7,13 +7,15 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * The users file: one {@code name:hash} line per user, as {@code kwatern passwd} writes it; blank lines and
- * lines starting with {@code #} are ignored. The file is read again when it changes, so removing a line signs
+ * The users file: one {@code name:grants:hash} line per user, as {@code kwatern passwd} writes it, where grants
+ * are what the user sees beyond the public view ({@link Grants}); blank lines and lines starting with {@code #}
+ * are ignored. The file is read again when it changes, so removing a line signs
  * that user out; a file that has become unreadable or malformed keeps the previous users. Thread-safe.
  */
 public final class Users {
@@ -22,7 +24,10 @@ public final class Users {
     // How often a lookup checks whether the file has changed.
     private static final long CHECK_MILLIS = 2_000;
 
-    private record Snapshot(long modified, long size, Map<String, String> hashes) {}
+    /** A user as the file has them: what they see, and their password hash. */
+    public record Member(Grants grants, String hash) {}
+
+    private record Snapshot(long modified, long size, Map<String, Member> members) {}
 
     private final Path file;
     private volatile Snapshot snapshot;
@@ -40,8 +45,8 @@ public final class Users {
     }
 
     /** Users that are not in a file, for tests and self-checks. */
-    public static Users of(Map<String, String> hashes) {
-        return new Users(null, new Snapshot(0, 0, Map.copyOf(hashes)));
+    public static Users of(Map<String, Member> members) {
+        return new Users(null, new Snapshot(0, 0, Map.copyOf(members)));
     }
 
     /** Whether a name can be a user's: letters, digits and {@code . _ @ -}, at most 64 characters. */
@@ -49,14 +54,28 @@ public final class Users {
         return name != null && NAME.matcher(name).matches();
     }
 
-    /** The stored password hash of a user, or {@code null} if there is no such user. */
-    public String hash(String name) {
+    /** A user, or {@code null} if there is no such user. */
+    public Member member(String name) {
         refresh();
-        return snapshot.hashes().get(name);
+        return snapshot.members().get(name);
     }
 
     public int size() {
-        return snapshot.hashes().size();
+        return snapshot.members().size();
+    }
+
+    /** How many users have each grants, in the order of {@link Grants#ALL}; only those some user has. */
+    public Map<Grants, Integer> countByGrants() {
+        Map<Grants, Integer> counts = new LinkedHashMap<>();
+        Grants.ALL.forEach(grants -> {
+            int count = (int) snapshot.members().values().stream()
+                    .filter(m -> m.grants().equals(grants))
+                    .count();
+            if (count > 0) {
+                counts.put(grants, count);
+            }
+        });
+        return counts;
     }
 
     private void refresh() {
@@ -72,7 +91,7 @@ public final class Users {
                 snapshot = read(file);
                 System.out.printf(
                         "users: read %s again, %d users%n",
-                        file.getFileName(), snapshot.hashes().size());
+                        file.getFileName(), snapshot.members().size());
             }
         } catch (IOException | IllegalArgumentException e) {
             System.err.println("users: cannot read " + file + ", keeping the previous users: " + e.getMessage());
@@ -81,43 +100,47 @@ public final class Users {
 
     private static Snapshot read(Path file) throws IOException {
         BasicFileAttributes attributes = Files.readAttributes(file, BasicFileAttributes.class);
-        Map<String, String> hashes = parse(Files.readAllLines(file, StandardCharsets.UTF_8));
-        return new Snapshot(attributes.lastModifiedTime().toMillis(), attributes.size(), Map.copyOf(hashes));
+        Map<String, Member> members = parse(Files.readAllLines(file, StandardCharsets.UTF_8));
+        return new Snapshot(attributes.lastModifiedTime().toMillis(), attributes.size(), Map.copyOf(members));
     }
 
-    static Map<String, String> parse(List<String> lines) {
-        Map<String, String> hashes = new HashMap<>();
+    static Map<String, Member> parse(List<String> lines) {
+        Map<String, Member> members = new HashMap<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).strip();
             if (line.isEmpty() || line.startsWith("#")) {
                 continue;
             }
-            int colon = line.indexOf(':');
-            String name = colon < 0 ? line : line.substring(0, colon);
-            String hash = colon < 0 ? "" : line.substring(colon + 1);
-            if (!validName(name) || !PasswordHash.wellFormed(hash)) {
+            String[] parts = line.split(":", -1);
+            if (parts.length != 3 || !validName(parts[0]) || !PasswordHash.wellFormed(parts[2])) {
                 throw new IllegalArgumentException(
-                        "line " + (i + 1) + " is not name:hash as written by kwatern passwd");
+                        "line " + (i + 1) + " is not name:grants:hash as written by kwatern passwd");
             }
-            if (hashes.put(name, hash) != null) {
-                throw new IllegalArgumentException("line " + (i + 1) + ": " + name + " is there twice");
+            Grants grants;
+            try {
+                grants = Grants.parse(parts[1]);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("line " + (i + 1) + ": " + e.getMessage());
+            }
+            if (members.put(parts[0], new Member(grants, parts[2])) != null) {
+                throw new IllegalArgumentException("line " + (i + 1) + ": " + parts[0] + " is there twice");
             }
         }
-        return hashes;
+        return members;
     }
 
     /**
-     * Sets a user's hash in the file, replacing their line or adding one, and keeping all other lines. A new
+     * Sets a user in the file, replacing their line or adding one, and keeping all other lines. A new
      * file is readable by its owner only, where the file system allows; an existing one keeps its permissions.
      */
-    public static void put(Path file, String name, String hash) throws IOException {
+    public static void put(Path file, String name, Member member) throws IOException {
         // Through a link, the file it points to is replaced, not the link.
         Path target = Files.exists(file) ? file.toRealPath() : file.toAbsolutePath();
         List<String> lines = new ArrayList<>();
         if (Files.exists(target)) {
             lines.addAll(Files.readAllLines(target, StandardCharsets.UTF_8));
         }
-        String line = name + ":" + hash;
+        String line = name + ":" + member.grants() + ":" + member.hash();
         boolean replaced = false;
         for (int i = 0; i < lines.size(); i++) {
             if (lines.get(i).strip().startsWith(name + ":")) {
