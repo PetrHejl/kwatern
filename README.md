@@ -74,18 +74,20 @@ private in Gramps stays out. To show more to relatives only, let them sign in (s
 
 ## Memory and size
 
-Both serving the Gramps example tree (2,157 people), measured on 2026-09-29 on a Linux PC. "After browsing" is
+Both serving the Gramps example tree (2,157 people) on a Linux PC, Kwatern measured on 2026-09-30 and Gramps Web
+on 2026-09-29. "After browsing" is
 after opening 300 people: for Kwatern their pages, charts and maps, 1,500 pages in all; for Gramps Web the API
 requests of their person pages.
 
 | | Kwatern | Kwatern, `-Xmx96m` | Gramps Web 3.22, defaults | Gramps Web, tuned |
 |---|---|---|---|---|
 | Runs as | 1 process | 1 process | 3 containers: 8 web workers, Celery with 2 processes, Valkey | 3 containers: 2 web workers, Celery with 1 process, Valkey |
-| Memory, idle | 101 MB | 67 MB | 1.7 GB | 570 MB |
-| Memory, after browsing | 152 MB | 57 MB | 1.8 GB | 600 MB |
+| Memory, idle | 108 MB | 76 MB | 1.7 GB | 570 MB |
+| Memory, after browsing | 152 MB | 58 MB | 1.8 GB | 600 MB |
 | Program size | 52 MB binary | 52 MB binary | 4.7 GB image | 4.7 GB image |
 
-Kwatern loads the tree in about 150 ms. On a real export of 356 people and 598 photos it serves in 80 MB.
+Kwatern loads the tree in about 160 ms and serves its first page about 0.3 s after starting. On a real export
+of 356 people and 598 photos it serves in 80 MB.
 The memory is the resident set of the process for Kwatern and the sum of `docker stats` of the three containers
 for Gramps Web, which also does much more (see [Why Kwatern](#why-kwatern)).
 
@@ -121,9 +123,9 @@ server/build/native/nativeCompile/kwatern --help
 When the export file changes, the server loads it again and serves the new version; `--reload=off` turns this
 off.
 
-Memory levels off at a few hundred MB (about 220 MB for a tree of 2,000 people on a 1 GB machine). On a small
+Memory levels off at a few hundred MB (about 250 MB for a tree of 2,000 people on a 1 GB machine). On a small
 VPS a heap limit keeps it lower, at the cost of slightly more garbage collection: `-Xmx128m`, or `-Xmx96m`
-for trees of a few thousand people, runs in about 80–100 MB:
+for trees of a few thousand people, runs in about 90–100 MB:
 
 ```sh
 server/build/native/nativeCompile/kwatern -Xmx128m family.gramps

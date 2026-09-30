@@ -50,10 +50,11 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   viewer and hands it to `SignIn`, `StaticFiles`, `MediaFiles` or `PageRoutes`, a table of the pages by the first
   part of their address; until 2026-09-29 it was one class of 750 lines.
 - **Memory (no built-in heap limit):** the native image's defaults already bound the heap: at most 80% of
-  physical memory (or of a container's limit), the young generation 10% of that. Measured 2026-09-28 on the
-  example tree with `-XX:MaxRAM=1g` (a 1 GB VPS): 100 MB at start, levelling off at 218 MB after 30 reloads
-  and 300 chart pages. A limit halves that (`-Xmx96m`: 82 MB over 31 reloads; a 1.7 GB package with
-  `-Xmx64m`: 54 MB) at the cost of more frequent collections. It is left to the operator (the README says
+  physical memory (or of a container's limit), the young generation 10% of that. Measured 2026-09-30 on the
+  example tree with `-XX:MaxRAM=1g` (a 1 GB VPS): 108 MB at start, levelling off at about 250 MB after 30 reloads
+  and 300 chart pages (218 MB when measured on 2026-09-28; the cause of the rise was not looked for). A limit
+  keeps it far lower (`-Xmx96m`: 89 MB, `-Xmx128m`: 101 MB over 30 reloads; a 1.7 GB package with `-Xmx64m`:
+  54 MB, measured 2026-09-28) at the cost of more frequent collections. It is left to the operator (the README says
   so), since a small built-in limit would break large trees and a large one would change nothing.
 - **Dependencies:** as few as possible.
   - `gramps-xml` (parser and model) has none beyond the JDK.
@@ -339,8 +340,8 @@ version from the next request on. Added 2026-09-28.
   object changing. A package is extracted into a new directory, and the previous one removed once the last request
   using the previous version has ended (`web/Version`). Until 2026-09-29 it was removed at once, while requests of
   the previous version might still be reading its files. `Loader` makes the versions, `Main` only the command line.
-- While loading, both versions are in memory. Over 31 reloads of the example tree with `-Xmx96m` the
-  process stayed at 82 MB; without a limit it levels off higher (see Memory under Decisions).
+- While loading, both versions are in memory. Over 30 reloads of the example tree with `-Xmx96m` the
+  process stayed at 89 MB (82 MB on 2026-09-28); without a limit it levels off higher (see Memory under Decisions).
 - The native image includes the XML parser's message bundle, so broken files give its real error instead
   of "Could not load any resource bundle".
 
@@ -581,4 +582,11 @@ ancestor, fan chart, descendant and map pages), and the same with `-Xmx96m`. Gra
 after the person and timeline API requests of 300 people, with the default 8 web workers and 2 Celery
 processes, and tuned to 2 and 1. Starting its stock compose file for the first time made both the web and the Celery
 container create a tree named "Gramps Web"; starting the web container first avoids that. The binary is 45 MB
-without the image decoders, 47 MB with them, 52 MB with ICU's names of languages and regions (2026-09-29).
+without the image decoders, 47 MB with them, 52 MB with ICU's names of languages and regions (2026-09-29; sizes in
+MiB, as `ls -h` shows them).
+
+Kwatern's figures were measured again on 2026-09-30 (AMD Ryzen 7 PRO 8840U, native binary of `main`), each run
+repeated: load 156–176 ms (`--check`); first page served 208–366 ms after starting the process; resident set
+107–108 MB idle and 151–154 MB after browsing, 76 and 58 MB with `-Xmx96m`. Of the 1,500 requests for the first 300
+people of the export, 449 are 404s by design: 75 of them may be alive, so the public view has no pages for them,
+and 74 more have no places for a map. The Gramps Web figures are from 2026-09-29.
