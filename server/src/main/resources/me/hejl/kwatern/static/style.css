@@ -675,12 +675,11 @@ svg.lifespans { display: block; width: 100%; height: auto; }
 .lifespans .group { font-size: var(--text-xs); fill: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .life .name { font-size: var(--text-base); fill: var(--accent); }
 .life .years { font-size: var(--text-sm); fill: var(--muted); }
-.life rect { fill: var(--neutral-bg); stroke: var(--neutral-fg); stroke-width: 1; }
-.gender-colours .life.male rect { fill: var(--male-bg); stroke: var(--male-fg); }
-.gender-colours .life.female rect { fill: var(--female-bg); stroke: var(--female-fg); }
-.life.self rect, .gender-colours .life.self rect { fill: var(--self-bg); stroke: var(--self-bg); }
+.life .bar { fill: var(--neutral-bg); stroke: var(--neutral-fg); stroke-width: 1; }
+.gender-colours .life.male .bar { fill: var(--male-bg); stroke: var(--male-fg); }
+.gender-colours .life.female .bar { fill: var(--female-bg); stroke: var(--female-fg); }
+.life.self .bar, .gender-colours .life.self .bar { fill: var(--self-bg); stroke: var(--self-bg); }
 .life.self .name { font-weight: 700; }
-.life.open rect { stroke-dasharray: 3 3; fill-opacity: 0.5; }
 a:hover .life .name { text-decoration: underline; }
 
 /* ---------------------------------------------------------------- maps */

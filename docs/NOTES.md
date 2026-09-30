@@ -456,8 +456,13 @@ by default; both timeline features.
   siblings and children during the person's life, as grey rows linking the relative. Shown by default,
   `?family=hide` hides them. Births of parents and spouses are left out; so are people who may be alive.
 - **Family lifespans:** bars on one time axis for parents, the person and spouses, siblings and children,
-  the person's lifetime shaded, bars without a known end fading out; only when at least three are known.
-  Hidden on phones, where it would be too small to read.
+  the person's lifetime shaded; only when at least three are known. Hidden on phones, where it would be too
+  small to read. A bar ends at the death; for someone who may be alive (shown when living people are) it runs
+  to this year and ends in a point. Without a dated death, burial or cremation, a bar is solid to the person's
+  last dated event of their own or their families (they lived then) and fades out over the 20 years after, never
+  past this year; a fixed length would pass a guess off as data. The axis does not run into the future. Who may be
+  alive comes from `PublicDatabase.alive`, filled even when living people are shown. The note under the chart only
+  explains the kinds of bars it has, and says that people who may be alive are left out only where they are.
 - **Maps** (Leaflet 1.9.4, BSD 2-Clause, bundled in `static/leaflet` from the npm package, checked against
   the registry's SHA-512; our `map.js` reads markers from `data-` attributes and sets text only as text):
   - the person's Map tab: their places numbered in timeline order, with a list; optionally the birth and

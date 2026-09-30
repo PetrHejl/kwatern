@@ -151,6 +151,7 @@ class PrivacyFilterTest {
 
         PublicDatabase livingShown = PrivacyFilter.apply(db, alive, new PrivacyOptions(false, true));
         assertEquals(Set.of(), livingShown.living());
+        assertEquals(filter(db).living(), livingShown.alive(), "still knows who may be alive");
         assertTrue(livingShown.database().objects().noneMatch(PrimaryObject::priv));
 
         PublicDatabase privateShown = PrivacyFilter.apply(db, alive, new PrivacyOptions(true, false));
