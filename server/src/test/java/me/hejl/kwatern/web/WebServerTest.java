@@ -177,7 +177,7 @@ class WebServerTest {
     @Test
     void followsTheSystemThemeUnlessForced() throws Exception {
         assertFalse(get("/", null).body().contains("data-theme"), "auto: no attribute");
-        var dark = new WebServer(new Site(published, new Site.Options("en", false, "dark", Site.MapOptions.OFF, null)));
+        var dark = new WebServer(new Site(published, new Site.Options("en", false, "dark", Site.MapOptions.OFF)));
         int port = dark.start("127.0.0.1", 0);
         try {
             String body = CLIENT.send(
@@ -485,21 +485,7 @@ class WebServerTest {
         String plain = get("/", null).body();
         assertTrue(plain.contains("<footer class=\"site\">"));
         assertTrue(plain.contains(Site.PROGRAM));
-        assertFalse(plain.contains("Source code"), "no link without --source-url");
-
-        var withSource = new WebServer(new Site(
-                published, new Site.Options("en", true, null, Site.MapOptions.OFF, "https://example.org/kwatern")));
-        int port = withSource.start("127.0.0.1", 0);
-        try {
-            String body = CLIENT.send(
-                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I0044"))
-                                    .build(),
-                            HttpResponse.BodyHandlers.ofString())
-                    .body();
-            assertTrue(body.contains("<a href=\"https://example.org/kwatern\">Source code (AGPL)</a>"));
-        } finally {
-            withSource.stop();
-        }
+        assertTrue(plain.contains("<a href=\"https://github.com/PetrHejl/kwatern\">Source code (AGPL)</a>"));
     }
 
     @Test
@@ -546,7 +532,7 @@ class WebServerTest {
 
     @Test
     void leavesMapsOutWhenOff() throws Exception {
-        var off = new WebServer(new Site(published, new Site.Options("en", true, null, Site.MapOptions.OFF, null)));
+        var off = new WebServer(new Site(published, new Site.Options("en", true, null, Site.MapOptions.OFF)));
         int port = off.start("127.0.0.1", 0);
         try {
             var home = CLIENT.send(

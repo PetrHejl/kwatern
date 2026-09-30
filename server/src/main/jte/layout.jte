@@ -44,7 +44,7 @@
 @endif
 ${content}
 <footer class="site">
-    <span>${Site.PROGRAM}</span>@if(ui.sourceUrl() != null)<span aria-hidden="true">·</span><a href="${ui.sourceUrl()}">${ui.t("footer.source")}</a>@endif
+    <span>${Site.PROGRAM}</span><span aria-hidden="true">·</span><a href="${Site.SOURCE_URL}">${ui.t("footer.source")}</a>
 </footer>
 </body>
 </html>

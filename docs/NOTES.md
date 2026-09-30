@@ -505,9 +505,11 @@ Third-party material and what it requires:
   so a copy of the single file is complete; `--check` fails if one is missing. The JVM distribution also has
   `LICENSE` and `NOTICE.txt` beside the program. A new library or bundled file needs its entry in `NOTICE.txt`
   and its licence text in `Licenses`.
-- **Source code offer (AGPL section 13):** every page has a footer with the program and version; with
-  `--source-url` it also links to the source code, which anyone serving a changed version must offer. It is on
-  the private sign-in page too. There is no default link until the source is published.
+- **Source code offer (AGPL section 13):** every page has a footer with the program, its version and a link to
+  the source code, which anyone serving a changed version must offer. It is on the private sign-in page too.
+  - The link is `Site.SOURCE_URL`, the GitHub repository, since 2026-09-30. It replaced the `--source-url` option,
+    which had no default: a site served without it offered no source. Someone serving a changed version changes
+    the source anyway, so they change the link there too.
 
 ## Differences from Gramps
 
@@ -539,8 +541,6 @@ Third-party material and what it requires:
 
 ## Open items
 
-- **Source URL:** once the source is published, make its address the default of `--source-url` and add it to
-  `NOTICE.txt`.
 - **Images:** other formats (TIFF, WebP, HEIC) are not decoded. The portrait is the
   first media reference, as in Gramps, even when its file is missing (then the initials remain). The peak memory while
   decoding large progressive images (up to 64 MB of coefficients each) could be lowered for small VPSs. CMYK is converted without a
