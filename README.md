@@ -167,6 +167,25 @@ Caddy (`reverse_proxy 127.0.0.1:8080`) or nginx, keep the server on `127.0.0.1` 
 that the visitor's address and HTTPS are taken from the proxy's `X-Forwarded-*` headers. The server refuses to
 offer signing in on another address without `--behind-proxy`, unless `--allow-insecure-login` is given.
 
+### Running as a service
+
+[docs/kwatern.service](docs/kwatern.service) runs Kwatern under systemd as its own user, with the export,
+`users.txt` and `session.key` in `/var/lib/kwatern` and a package's media extracted to `/var/cache/kwatern`:
+
+```sh
+sudo install -m 755 kwatern /usr/local/bin/kwatern
+sudo install -m 644 kwatern.service /etc/systemd/system/kwatern.service   # then edit ExecStart
+sudo useradd --system --home-dir /var/lib/kwatern --shell /usr/sbin/nologin kwatern
+sudo install -d -m 750 -o kwatern -g kwatern /var/lib/kwatern
+sudo install -m 640 -o kwatern -g kwatern family.gpkg /var/lib/kwatern/family.gpkg
+sudo systemctl enable --now kwatern
+journalctl -u kwatern            # the summary printed at startup
+```
+
+A new export copied over `/var/lib/kwatern/family.gpkg` the same way is shown without a restart. Members are added
+as the service's user, so that it can read the file: `sudo -u kwatern kwatern passwd --users
+/var/lib/kwatern/users.txt NAME`.
+
 ## License
 
 AGPL-3.0-or-later, see [LICENSE](LICENSE). The program includes third-party software under its own licenses,
