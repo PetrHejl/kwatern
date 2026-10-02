@@ -12,6 +12,8 @@ Status: early development. It serves person, family, place and source pages with
 descendant charts, maps, media pages, a surname index and a search. See [docs/NOTES.md](docs/NOTES.md) for
 progress, decisions and open items.
 
+**Demo:** <https://kwatern.hejl.me> serves the fictional example tree of the Gramps project, with everyone shown.
+
 ## Screenshots
 
 | | |
