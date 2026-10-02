@@ -32,6 +32,7 @@ public final class Ui {
     private final NameOrder order;
     private final PlaceFormatter places;
     private final Site.Options options;
+    private final String contact;
     private final boolean hasMedia;
     private final boolean hasMap;
     private final Map<String, Object> pages;
@@ -44,6 +45,7 @@ public final class Ui {
     Ui(Locale locale, GrampsDatabase db, Site.Options options, boolean hasMedia, boolean hasMap) {
         this.locale = locale;
         this.options = options;
+        this.contact = Site.contactUrl(options.contact(), db.header());
         this.hasMedia = hasMedia;
         this.hasMap = hasMap;
         this.messages = Messages.load("me/hejl/kwatern/messages", locale);
@@ -58,6 +60,7 @@ public final class Ui {
     private Ui(Ui ui, Viewer viewer) {
         this.locale = ui.locale;
         this.options = ui.options;
+        this.contact = ui.contact;
         this.hasMedia = ui.hasMedia;
         this.hasMap = ui.hasMap;
         this.messages = ui.messages;
@@ -150,6 +153,16 @@ public final class Ui {
 
     public Site.MapOptions map() {
         return options.map();
+    }
+
+    /** The URL of the footer's contact link, or {@code null} for none; see {@code --contact}. */
+    public String contact() {
+        return contact;
+    }
+
+    /** The footer's line about the tree, as HTML, or {@code null} for none; see {@code --credit}. */
+    public String credit() {
+        return options.credit();
     }
 
     /** Whether people are marked by gender with colour; see {@code --gender-colours}. */

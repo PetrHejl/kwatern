@@ -516,6 +516,14 @@ Third-party material and what it requires:
   - The link is `Site.SOURCE_URL`, the GitHub repository, since 2026-09-30. It replaced the `--source-url` option,
     which had no default: a site served without it offered no source. Someone serving a changed version changes
     the source anyway, so they change the link there too.
+- **Contact and credit in the footer** (2026-10-02): `--contact` adds a "Contact" link, so relatives can report
+  a mistake or ask for a removal, and `--credit` a line of HTML, such as where the tree comes from and its license
+  (the example tree on a demo, under GPL-2.0-or-later). Both are off by default.
+  - `--contact=researcher` takes the email of the export's researcher (Gramps: Preferences, Researcher), only when
+    asked for: the researcher is a living person, and the export would otherwise decide what gets published. Only
+    plain addresses are linked, because an export may come from someone else and characters such as `?` would add
+    to the email. Without one, the server warns at each load, without printing the address.
+  - `--credit` is HTML like `--map-attribution` and comes from whoever runs the server, so it is not escaped.
 
 ## Differences from Gramps
 

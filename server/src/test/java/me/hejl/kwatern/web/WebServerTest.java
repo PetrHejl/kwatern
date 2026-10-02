@@ -2,6 +2,7 @@ package me.hejl.kwatern.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,7 +19,9 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
 import me.hejl.gramps.model.GrampsDatabase;
+import me.hejl.gramps.model.Header;
 import me.hejl.gramps.model.Person;
+import me.hejl.gramps.model.Researcher;
 import me.hejl.gramps.privacy.AliveRules;
 import me.hejl.gramps.privacy.PrivacyFilter;
 import me.hejl.gramps.privacy.PrivacyOptions;
@@ -190,6 +193,43 @@ class WebServerTest {
         } finally {
             dark.stop();
         }
+    }
+
+    @Test
+    void showsContactAndCreditInTheFooterWhenGiven() throws Exception {
+        String plain = get("/", null).body();
+        assertFalse(plain.contains("mailto:") || plain.contains(">Contact<"), "no contact by default");
+        String credit = "Example tree: <a href=\"https://gramps-project.org\">Gramps</a>, GPL-2.0-or-later";
+        var credited = new WebServer(new Site(
+                published, new Site.Options("en", true, null, Site.MapOptions.OFF, "mailto:tree@example.org", credit)));
+        int port = credited.start("127.0.0.1", 0);
+        try {
+            String body = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I0044"))
+                                    .header("Accept-Language", "cs")
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(body.contains("<a href=\"mailto:tree@example.org\">Kontakt</a>"), "translated contact link");
+            assertTrue(body.contains(credit), "the credit as HTML");
+        } finally {
+            credited.stop();
+        }
+    }
+
+    @Test
+    void takesTheContactFromTheResearcherOnlyWithAPlainAddress() {
+        assertEquals("https://example.org/", Site.contactUrl("https://example.org/", null));
+        assertNull(Site.contactUrl(Site.Options.RESEARCHER, null));
+        assertNull(Site.contactUrl(Site.Options.RESEARCHER, withEmail(null)));
+        assertEquals(
+                "mailto:a.b@example.org", Site.contactUrl(Site.Options.RESEARCHER, withEmail(" a.b@example.org ")));
+        assertNull(Site.contactUrl(Site.Options.RESEARCHER, withEmail("a@example.org?bcc=b@example.org")));
+        assertNull(Site.contactUrl(Site.Options.RESEARCHER, withEmail("javascript:alert(1)//@x.org")));
+    }
+
+    private static Header withEmail(String email) {
+        return new Header(null, null, new Researcher(null, null, null, null, null, null, null, null, email), null);
     }
 
     @Test

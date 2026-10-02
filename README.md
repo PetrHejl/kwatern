@@ -134,6 +134,15 @@ server/build/native/nativeCompile/kwatern -Xmx128m family.gramps
 Maps load their images from OpenStreetMap in visitors' browsers; `--map=off` turns them off and
 `--map-tiles` chooses another tile server.
 
+The page footer can say who publishes the tree and where it comes from. `--contact` adds a "Contact" link to a web
+address, an email address, or with `--contact=researcher` to the researcher's email set in Gramps (*Preferences →
+Researcher*). `--credit` adds a line of HTML, for example on a demo of the Gramps example tree:
+
+```sh
+kwatern example.gramps --contact you@example.org \
+    --credit 'Example tree from <a href="https://github.com/gramps-project/gramps/tree/v6.0.8/example/gramps">Gramps</a>, GPL-2.0-or-later'
+```
+
 By default people who may be alive appear only as "Living" and records marked private in Gramps are left
 out. `--living=show` and `--private=show` publish them, for example on a site only family can reach;
 the server then prints a warning at startup.
