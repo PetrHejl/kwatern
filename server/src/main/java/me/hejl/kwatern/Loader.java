@@ -133,6 +133,11 @@ final class Loader {
 
         result.warnings().forEach(w -> System.err.println("warning: " + w));
         System.out.print(summary(widest.database(), loadMillis));
+        String contact = settings.site().contact();
+        if (Site.Options.RESEARCHER.equals(contact) && Site.contactUrl(contact, full.header()) == null) {
+            System.err.println("WARNING: the export has no researcher email for --contact=researcher, so pages have"
+                    + " no contact link; set it in Gramps under Preferences, Researcher");
+        }
         views.forEach((options, published) -> {
             List<String> who = new ArrayList<>();
             if (options.equals(publicOptions)) {

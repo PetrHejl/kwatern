@@ -152,6 +152,20 @@ public final class Main implements Callable<Integer> {
     private String mapAttribution;
 
     @Option(
+            names = "--contact",
+            paramLabel = "URL|EMAIL|researcher",
+            description = "Where visitors reach you, linked as Contact in the page footer: a web address, an email"
+                    + " address, or researcher for the researcher's email in the export (Gramps: Preferences,"
+                    + " Researcher). Default: no link.")
+    private String contact;
+
+    @Option(
+            names = "--credit",
+            paramLabel = "HTML",
+            description = "A line for the page footer, such as where the tree comes from and its license.")
+    private String credit;
+
+    @Option(
             names = "--living",
             paramLabel = "hide|show",
             defaultValue = "hide",
@@ -421,7 +435,17 @@ public final class Main implements Callable<Integer> {
                 language,
                 genderColours == Toggle.ON,
                 theme == Theme.AUTO ? null : theme.name().toLowerCase(Locale.ROOT),
-                mapOptions());
+                mapOptions(),
+                contactUrl(),
+                credit == null || credit.isBlank() ? null : credit);
+    }
+
+    /** The contact link from {@code --contact}, checked by {@link #validate()}. */
+    private String contactUrl() {
+        if (contact == null || contact.equals(Site.Options.RESEARCHER) || contact.matches("https?://\\S+")) {
+            return contact;
+        }
+        return Site.mailto(contact);
     }
 
     /**
@@ -448,6 +472,10 @@ public final class Main implements Callable<Integer> {
                 || !mapTiles.contains("{y}")) {
             throw new ParameterException(
                     spec.commandLine(), "--map-tiles must be an http(s) URL with {z}, {x} and {y}: " + mapTiles);
+        }
+        if (contact != null && contactUrl() == null) {
+            throw new ParameterException(
+                    spec.commandLine(), "--contact must be an http(s) URL, an email address or researcher: " + contact);
         }
         if (file == null) {
             throw new ParameterException(spec.commandLine(), "Missing the export: kwatern EXPORT");

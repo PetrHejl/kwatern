@@ -160,6 +160,13 @@ class MainTest {
     }
 
     @Test
+    void refusesAContactThatIsNoAddress() {
+        Run run = run("--check", "--contact", "javascript:alert(1)", "tree.gramps");
+        assertEquals(2, run.exitCode());
+        assertTrue(run.err().contains("--contact must be an http(s) URL, an email address or researcher"), run.err());
+    }
+
+    @Test
     void tellsWhetherOthersCanReadAFile(@TempDir Path directory) throws IOException {
         assumeTrue(directory.getFileSystem().supportedFileAttributeViews().contains("posix"));
         Path file = Files.writeString(directory.resolve("secret"), "key");

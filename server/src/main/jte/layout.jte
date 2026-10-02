@@ -44,7 +44,7 @@
 @endif
 ${content}
 <footer class="site">
-    <span>${Site.PROGRAM}</span><span aria-hidden="true">·</span><a href="${Site.SOURCE_URL}">${ui.t("footer.source")}</a>
+    @if(ui.credit() != null)<span>$unsafe{ui.credit()}</span><span aria-hidden="true">·</span>@endif@if(ui.contact() != null)<a href="${ui.contact()}">${ui.t("footer.contact")}</a><span aria-hidden="true">·</span>@endif<span>${Site.PROGRAM}</span><span aria-hidden="true">·</span><a href="${Site.SOURCE_URL}">${ui.t("footer.source")}</a>
 </footer>
 </body>
 </html>
