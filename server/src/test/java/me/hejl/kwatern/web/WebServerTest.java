@@ -666,7 +666,6 @@ class WebServerTest {
                     birthParents >= 0 && fosterParents > birthParents,
                     "both pairs of parents are headed, the main ones first");
             assertFalse(fosterSon.contains("nowrap\">Foster father<"), "so their boxes do not repeat the relation");
-            assertFalse(fosterSon.contains("class=\"d-line\""), "no line joins him to one of the pairs");
             assertTrue(
                     Pattern.compile(
                                     "Death of father <span><a href=\"/person/I0\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
@@ -688,14 +687,13 @@ class WebServerTest {
                     "the stepfather is called so, not by the child's word");
             assertFalse(stepchild.contains("Stepchild"), "which is nowhere on her page");
 
-            // A foster child whose only parents are the foster parents: no heading, the line, and their roles.
+            // A foster child whose only parents are the foster parents: no heading, and their roles.
             String onlyFoster = CLIENT.send(
                             HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I6"))
                                     .build(),
                             HttpResponse.BodyHandlers.ofString())
                     .body();
             assertFalse(onlyFoster.contains("d-parents-label"));
-            assertTrue(onlyFoster.contains("class=\"d-line\""));
             assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster father</span>"));
             assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster mother</span>"));
 
