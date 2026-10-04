@@ -43,7 +43,8 @@ public final class Pages {
      *
      * @param year     the Gregorian year for the timeline column, or empty for undated events
      * @param partner  the other spouse for family events such as a marriage, else {@code null}
-     * @param relative a relative, for events in the lives of the family such as "Birth of son", else {@code null}
+     * @param relative a relative, for events in the lives of the family such as "Birth of son", else {@code null};
+     *                 the description then is the relation to a parent or child if it is not by birth
      */
     public record EventRow(
             String year,
@@ -142,8 +143,34 @@ public final class Pages {
             int childCount,
             int moreChildren) {}
 
-    /** Parents above, the person, and one block per family below. Parents may be {@code null}. */
-    public record Diagram(PersonLink father, PersonLink mother, PersonLink self, List<FamilyBlock> families) {}
+    /**
+     * The parents of one family a person is a child of, in the family diagram.
+     *
+     * @param label           e.g. "Birth parents" or "Foster parents"; empty when the person has only one
+     *                        family of parents, which needs no heading
+     * @param url        the family page, or empty without a label
+     * @param father     {@code null} if unknown
+     * @param fatherRole     "Father", or what he is to the person if not by birth and not in the label, as
+     *                       "Foster father"
+     * @param fatherRelation a relation the role does not name, such as an unknown or custom one, else empty
+     */
+    public record ParentsBlock(
+            String label,
+            String url,
+            PersonLink father,
+            String fatherRole,
+            String fatherRelation,
+            PersonLink mother,
+            String motherRole,
+            String motherRelation) {}
+
+    /**
+     * Parents above, the person, and one block per family below.
+     *
+     * @param parents the families the person is a child of that have a known parent, the main one first as in
+     *                Gramps, then others such as foster parents
+     */
+    public record Diagram(List<ParentsBlock> parents, PersonLink self, List<FamilyBlock> families) {}
 
     /**
      * A person's name for the page heading, split so the surname can be emphasised.

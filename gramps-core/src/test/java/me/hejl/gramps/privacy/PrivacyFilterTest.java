@@ -108,6 +108,35 @@ class PrivacyFilterTest {
     }
 
     @Test
+    void hidesParentsLinkedByAPrivateChildReference() {
+        // I3 is a child of F1 openly and of F2 by a private reference, as for foster parents kept private.
+        var db = TestTrees.parse(
+                event("D1", "Death", dateval("1900")) + event("D2", "Death", dateval("1910")),
+                person("I1", name("Jan") + eventref("D1") + "<parentin hlink=\"_F2\"/>")
+                        + person("I2", name("Jana") + eventref("D1") + "<parentin hlink=\"_F1\"/>")
+                        + person(
+                                "I3",
+                                name("Petr") + eventref("D2") + "<childof hlink=\"_F1\"/><childof hlink=\"_F2\"/>"),
+                family("F1", null, "I2", "I3")
+                        + "<family handle=\"_F2\" change=\"1\" id=\"F2\"><father hlink=\"_I1\"/>"
+                        + "<childref hlink=\"_I3\" priv=\"1\" frel=\"Foster\"/></family>",
+                "");
+        var alive = new ProbablyAlive(db, AliveRules.DEFAULTS, 2026);
+
+        GrampsDatabase out = filter(db).database();
+        assertEquals(List.of("_F1"), out.people().byId("I3").orElseThrow().parentFamilies());
+        assertEquals(List.of(), out.families().byId("F2").orElseThrow().children());
+        assertEquals(List.of(), out.danglingReferences());
+
+        GrampsDatabase shown =
+                PrivacyFilter.apply(db, alive, new PrivacyOptions(true, false)).database();
+        assertEquals(
+                List.of("_F1", "_F2"),
+                shown.people().byId("I3").orElseThrow().parentFamilies(),
+                "with private records shown");
+    }
+
+    @Test
     void publishesOnlyLinkedMedia() {
         String objects = new StringBuilder("<objects>")
                 .append("<object handle=\"_O1\" change=\"1\" id=\"O1\"><file src=\"a.jpg\" mime=\"image/jpeg\"")

@@ -5,12 +5,21 @@
 <section class="card">
     <h2>${ui.t("family")}</h2>
     <div class="diagram">
-        @if(diagram.father() != null || diagram.mother() != null)
-        <div class="d-parents">
-            @template.part.box(ui = ui, link = diagram.father(), role = ui.t("father"), relation = "")
-            @template.part.box(ui = ui, link = diagram.mother(), role = ui.t("mother"), relation = "")
+        @for(var p : diagram.parents())
+        @if(p.label().isEmpty())
+        @template.part.parents(ui = ui, parents = p)
+        @else
+        <div class="d-parents-group">
+            <div class="d-parents-label">${p.label()} · <a href="${p.url()}">${ui.t("family.page")}</a></div>
+            @template.part.parents(ui = ui, parents = p)
         </div>
+        @endif
+        @endfor
+        @if(diagram.parents().size() == 1)
         <div class="d-line" aria-hidden="true"></div>
+        @elseif(diagram.parents().size() > 1)
+        <%-- No line under several pairs: it would join the person to the last one only; the headings say who is who. --%>
+        <div class="d-gap"></div>
         @endif
         <div class="box self">
             @template.part.avatar(link = diagram.self())

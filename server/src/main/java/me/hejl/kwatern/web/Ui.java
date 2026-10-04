@@ -201,9 +201,25 @@ public final class Ui {
         if (value == null || value.isBlank()) {
             return "";
         }
-        String key = kind + "."
-                + NOT_IN_KEYS.matcher(value.strip().toLowerCase(Locale.ROOT)).replaceAll("_");
-        String translated = messages.find(key);
+        String translated = findType(kind, value);
         return translated != null ? translated : value;
+    }
+
+    /** Like {@link #type}, but {@code null} when the page texts have nothing for the value. */
+    public String findType(String kind, String value) {
+        return findType(kind, value, null);
+    }
+
+    /**
+     * Like {@link #findType(String, String)}, for a variant of the value given by {@code variant} when not
+     * {@code null}, such as {@code parent.foster.father} for the father of a foster child.
+     */
+    public String findType(String kind, String value, String variant) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return messages.find(kind + "."
+                + NOT_IN_KEYS.matcher(value.strip().toLowerCase(Locale.ROOT)).replaceAll("_")
+                + (variant == null ? "" : "." + variant));
     }
 }

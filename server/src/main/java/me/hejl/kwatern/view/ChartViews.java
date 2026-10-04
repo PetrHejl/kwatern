@@ -197,7 +197,7 @@ final class ChartViews extends ViewPart {
             for (ChildRef ref : family.children()) {
                 Person child = db.people().get(ref.child()).orElse(null);
                 if (child != null) {
-                    nodes.add(descendant(child, child(ref).relation(), depth + 1, generations, seen));
+                    nodes.add(descendant(child, child(ref, family, person).relation(), depth + 1, generations, seen));
                 }
             }
             Event marriage = marriage(family);
@@ -280,6 +280,7 @@ final class ChartViews extends ViewPart {
                                 ui.join(
                                         ui.t("timeline.family." + kind + "." + relative.relation()) + " "
                                                 + link(relative.person()).name(),
+                                        relative.qualifier(),
                                         year(event)),
                                 0,
                                 true));

@@ -117,6 +117,30 @@ direction with these building blocks:
 - **Family:** a diagram in the sidebar: parents, the person (dark box), and one block per family in
   marriage order with the partner and children. More than 8 children show "and N more", linking to the
   family page. Siblings are rows: the first 5, then "Show N more".
+- **Parents not by birth:** a child's relation (Gramps `frel`/`mrel`) is shown towards one parent: the
+  relation to the person whose page it is, never the other parent's. The first family a person is a child
+  of is the main one, as in Gramps (ancestor charts follow it), and is shown first; further ones, such as
+  foster parents, follow. With more than one, every pair is headed by its relation ("Birth parents",
+  "Foster parents") and a family page link, with equal weight: a tinted or unlabelled main pair made the
+  other one look like the real family. When the two parents' relations differ (a stepfather married to the
+  mother), or the page texts have no heading for the relation, the heading is "Parents" (main) or "Other
+  parents". A family whose parents are all unknown or unpublished is left out, and the next one is the main
+  one. Several pairs have no connector line to the person: it would join them to the last pair only.
+- **Relation words, from each side:** the `child.*` texts ("Foster", "Pflegekind", "V pěstounské péči")
+  describe the child, so they appear only about children: in a child's box on a parent's page, on a line of
+  its own that may wrap (long texts do not fit beside the years), and after rows about a child ("Birth of
+  son … · Foster"). About a parent the `parent.*` texts say what the parent is ("Foster father",
+  "Pflegevater", "Pěstoun"): as the role in their box instead of "Father" when the relation is not in a
+  heading, and after rows about them ("Death of father … · Foster father"). Only a word for a father or a
+  mother (`parent.<relation>.father`) replaces the role; an unknown or custom relation has none, so the box
+  stays "Father" with the relation on its own line and still says which parent it is. A custom relation is
+  shown as entered on both sides; Gramps' "Unknown" like any other. The relation is in the secondary text colour like
+  the years: a colour of its own was close to the women's tint and made grey family rows outshine the
+  person's own events. Family events and the lifespans include the parents of every parent family, the
+  lifespans under the same headings as the diagram.
+- **Private child references:** a person's link to a family whose child reference to them is private is
+  hidden with it, as in Gramps' private proxy (`gen/proxy/private.py` `sanitize_person`), so neither those
+  parents nor the ancestors through them are published.
 - **Gender:** the initials avatar is tinted, blue for men, terracotta for women, grey for unknown or
   other; the two colours also differ in lightness, and a hidden label names the gender for screen
   readers. `--gender-colours=off` turns the tint off. Future charts may use a coloured box edge instead.
@@ -455,6 +479,7 @@ by default; both timeline features.
 - **Family events in the timeline:** births of siblings and children and deaths of parents, spouses,
   siblings and children during the person's life, as grey rows linking the relative. Shown by default,
   `?family=hide` hides them. Births of parents and spouses are left out; so are people who may be alive.
+  Parents of every family the person is a child of count (see "Parents not by birth").
 - **Family lifespans:** bars on one time axis for parents, the person and spouses, siblings and children,
   the person's lifetime shaded; only when at least three are known. Hidden on phones, where it would be too
   small to read. A bar ends at the death; for someone who may be alive (shown when living people are) it runs
@@ -568,6 +593,10 @@ Third-party material and what it requires:
 - **Rarer calendars:** Hebrew month numbering in non-leap years follows Gramps (Adar I and Adar II both
   mean Adar); only tested on a few dates.
 - **Notes:** styles (bold, links) are not rendered yet.
+- **Siblings not by birth:** siblings come from every parent family but carry no relation, so on a foster
+  child's page the foster parents' own child is "Birth of brother", and the siblings card does not tell
+  foster or half-siblings apart. Gramps records no sibling relation; it would follow from the families and
+  child relations they share.
 - **Surname index:** surnames that do not start with a letter of the page language's alphabet go under
   ICU's "…" heading.
 - **Native image:** ICU 78.3 needs its data included explicitly

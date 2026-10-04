@@ -296,7 +296,7 @@ public final class PrivacyFilter {
                 addresses(p.addresses()),
                 attributes(p.attributes()),
                 urls(p.urls()),
-                refs(p.parentFamilies()),
+                parentFamilies(p),
                 refs(p.families()),
                 keep(
                         p.associations(),
@@ -322,12 +322,29 @@ public final class PrivacyFilter {
                 List.of(),
                 List.of(),
                 List.of(),
-                refs(p.parentFamilies()),
+                parentFamilies(p),
                 refs(p.families()),
                 List.of(),
                 List.of(),
                 List.of(),
                 List.of());
+    }
+
+    /**
+     * The families a person is a child of, as far as they are published: a private child reference hides the
+     * link to that family, as it is gone from the family's children too.
+     */
+    // Gramps: gen/proxy/private.py sanitize_person
+    private List<String> parentFamilies(Person p) {
+        return keep(
+                p.parentFamilies(),
+                handle -> kept(handle)
+                        && db.families()
+                                .get(handle)
+                                .map(f -> f.children().stream()
+                                        .anyMatch(c -> c.child().equals(p.handle()) && visible(c.priv())))
+                                .orElse(false),
+                handle -> handle);
     }
 
     private Family family(Family f) {

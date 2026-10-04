@@ -6,8 +6,10 @@
 <div class="timeline">
 @for(var e : events)
     @if(e.relative() != null)
+    <%-- With a relation, the name and the relation are one flex item, so the separator is spaced like the
+         others. The relation class has no style; it marks a relation not by birth, as in boxes. --%>
     <div class="t-year family">${e.year()}</div>
-    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @template.part.person(ui = ui, link = e.relative())</div>
+    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @if(e.description().isEmpty())@template.part.person(ui = ui, link = e.relative())@else<span>@template.part.person(ui = ui, link = e.relative()) · <span class="relation">${e.description()}</span></span>@endif</div>
     @else
     <div class="t-year">${e.year()}</div>
     <div class="t-body">
