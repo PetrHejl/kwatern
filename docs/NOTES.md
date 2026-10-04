@@ -116,7 +116,10 @@ direction with these building blocks:
   confidence), plus "All sources on this page" at the bottom, each once with what it supports.
 - **Family:** a diagram in the sidebar: parents, the person (dark box), and one block per family in
   marriage order with the partner and children. More than 8 children show "and N more", linking to the
-  family page. Siblings are rows: the first 5, then "Show N more".
+  family page. Siblings are rows: the first 5, then "Show N more". No line joins the parents to the person:
+  their boxes say "Father" and "Mother" and the dark box marks the person, so it added nothing, and with
+  several pairs it joined the person to the last one only. The rule beside a family block stays; it groups
+  that partner and children.
 - **Parents not by birth:** a child's relation (Gramps `frel`/`mrel`) is shown towards one parent: the
   relation to the person whose page it is, never the other parent's. The first family a person is a child
   of is the main one, as in Gramps (ancestor charts follow it), and is shown first; further ones, such as
@@ -125,7 +128,7 @@ direction with these building blocks:
   other one look like the real family. When the two parents' relations differ (a stepfather married to the
   mother), or the page texts have no heading for the relation, the heading is "Parents" (main) or "Other
   parents". A family whose parents are all unknown or unpublished is left out, and the next one is the main
-  one. Several pairs have no connector line to the person: it would join them to the last pair only.
+  one.
 - **Relation words, from each side:** the `child.*` texts ("Foster", "Pflegekind", "V pěstounské péči")
   describe the child, so they appear only about children: in a child's box on a parent's page, on a line of
   its own that may wrap (long texts do not fit beside the years), and after rows about a child ("Birth of
