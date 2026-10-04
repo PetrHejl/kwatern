@@ -131,8 +131,10 @@ direction with these building blocks:
   its own that may wrap (long texts do not fit beside the years), and after rows about a child ("Birth of
   son … · Foster"). About a parent the `parent.*` texts say what the parent is ("Foster father",
   "Pflegevater", "Pěstoun"): as the role in their box instead of "Father" when the relation is not in a
-  heading, and after rows about them ("Death of father … · Foster father"). A custom relation is shown as
-  entered on both sides; Gramps' "Unknown" like any other. The relation is in the secondary text colour like
+  heading, and after rows about them ("Death of father … · Foster father"). Only a word for a father or a
+  mother (`parent.<relation>.father`) replaces the role; an unknown or custom relation has none, so the box
+  stays "Father" with the relation on its own line and still says which parent it is. A custom relation is
+  shown as entered on both sides; Gramps' "Unknown" like any other. The relation is in the secondary text colour like
   the years: a colour of its own was close to the women's tint and made grey family rows outshine the
   person's own events. Family events and the lifespans include the parents of every parent family, the
   lifespans under the same headings as the diagram.

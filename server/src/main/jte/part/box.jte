@@ -4,8 +4,8 @@
 @param PersonLink link
 @param String role
 @param String relation
-<%-- relation: a child's relation to the parent whose page it is, unless by birth; on a line of its own
-     so that long texts can wrap. --%>
+<%-- relation: a relation not by birth that the role does not name, as a child's to the parent whose page it is
+     or a parent's unknown or custom one; on a line of its own so that long texts can wrap. --%>
 @if(link == null)
 <div class="box missing">
     @template.part.avatar(link = null)

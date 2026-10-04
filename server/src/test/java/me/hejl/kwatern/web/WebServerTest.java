@@ -574,7 +574,7 @@ class WebServerTest {
     void marksParentsAndChildrenNotByBirth() throws Exception {
         // I2 was born to I3 (F0) and grew up with foster parents I0 and I1 (F1). I5 was born to I3 and is
         // a stepchild of I4 (F2), so the relation differs between the two parents. I6 has only her foster
-        // parents (F1).
+        // parents (F1). I7 is a child of I3 (F0) whose relation to her is unknown.
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <database xmlns="http://gramps-project.org/xml/1.7.2/">
@@ -593,6 +593,8 @@ class WebServerTest {
                     <event handle="_d5" change="1" id="E11"><type>Death</type><dateval val="2000"/></event>
                     <event handle="_b6" change="1" id="E12"><type>Birth</type><dateval val="1925"/></event>
                     <event handle="_d6" change="1" id="E13"><type>Death</type><dateval val="2005"/></event>
+                    <event handle="_b7" change="1" id="E14"><type>Birth</type><dateval val="1922"/></event>
+                    <event handle="_d7" change="1" id="E15"><type>Death</type><dateval val="1990"/></event>
                   </events>
                   <people>
                     <person handle="_i0" change="1" id="I0"><gender>M</gender>
@@ -616,10 +618,13 @@ class WebServerTest {
                     <person handle="_i6" change="1" id="I6"><gender>F</gender>
                       <eventref hlink="_b6" role="Primary"/><eventref hlink="_d6" role="Primary"/>
                       <childof hlink="_f1"/></person>
+                    <person handle="_i7" change="1" id="I7"><gender>M</gender>
+                      <eventref hlink="_b7" role="Primary"/><eventref hlink="_d7" role="Primary"/>
+                      <childof hlink="_f0"/></person>
                   </people>
                   <families>
                     <family handle="_f0" change="1" id="F0"><mother hlink="_i3"/>
-                      <childref hlink="_i2"/><childref hlink="_i5"/></family>
+                      <childref hlink="_i2"/><childref hlink="_i5"/><childref hlink="_i7" mrel="Unknown"/></family>
                     <family handle="_f1" change="1" id="F1"><father hlink="_i0"/><mother hlink="_i1"/>
                       <childref hlink="_i2" mrel="Foster" frel="Foster"/>
                       <childref hlink="_i6" mrel="Foster" frel="Foster"/></family>
@@ -660,7 +665,7 @@ class WebServerTest {
             assertTrue(
                     birthParents >= 0 && fosterParents > birthParents,
                     "both pairs of parents are headed, the main ones first");
-            assertFalse(fosterSon.contains("Foster father ·"), "so their boxes do not repeat the relation");
+            assertFalse(fosterSon.contains("nowrap\">Foster father<"), "so their boxes do not repeat the relation");
             assertFalse(fosterSon.contains("class=\"d-line\""), "no line joins him to one of the pairs");
             assertTrue(
                     Pattern.compile(
@@ -693,6 +698,15 @@ class WebServerTest {
             assertTrue(onlyFoster.contains("class=\"d-line\""));
             assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster father</span>"));
             assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster mother</span>"));
+
+            // Without a word for the parent ("Unknown"), the box still says which parent, with the relation after.
+            String unknown = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I7"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(unknown.contains("<span class=\"nowrap\">Mother</span>"));
+            assertTrue(unknown.contains("<span class=\"box-sub relation\">Unknown relation</span>"));
         } finally {
             tree.stop();
         }

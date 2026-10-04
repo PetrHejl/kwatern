@@ -235,23 +235,30 @@ final class PersonViews extends ViewPart {
 
     /**
      * The parents of a family the person is a child of. With several families, each pair is headed by its
-     * relation, or by "Parents" or "Other parents" if the texts name none; a parent not by birth whose relation
-     * is not in a heading is called by it ("Foster father") instead of "Father".
+     * relation, or by "Parents" or "Other parents" if the texts name none. A parent not by birth whose relation
+     * is not in a heading is called by it ("Foster father") instead of "Father" where the texts have such a
+     * word; otherwise, as for an unknown or custom relation, they stay "Father" with the relation after it.
      */
     private ParentsBlock parentsBlock(Person person, Family family, boolean main, boolean headed) {
         boolean named = headed && ui.findType("parents", commonRelation(person, family)) != null;
+        String fatherRelation = named ? "Birth" : relationOf(person, family, true);
+        String motherRelation = named ? "Birth" : relationOf(person, family, false);
+        String fatherRole = parentRole(fatherRelation, true);
+        String motherRole = parentRole(motherRelation, false);
         return new ParentsBlock(
                 headed ? parentsLabel(person, family, main) : "",
                 headed ? Urls.family(family) : "",
                 link(family.father()),
-                parentRole(person, family, true, named),
+                fatherRole != null ? fatherRole : ui.t("father"),
+                fatherRole != null ? "" : parentText(fatherRelation, true),
                 link(family.mother()),
-                parentRole(person, family, false, named));
+                motherRole != null ? motherRole : ui.t("mother"),
+                motherRole != null ? "" : parentText(motherRelation, false));
     }
 
-    private String parentRole(Person person, Family family, boolean father, boolean named) {
-        String relation = named ? "" : parentText(relationOf(person, family, father), father);
-        return relation.isEmpty() ? ui.t(father ? "father" : "mother") : relation;
+    /** What the texts call a parent not by birth, as "Foster father", or {@code null} if they have no word. */
+    private String parentRole(String relation, boolean father) {
+        return relation.equals("Birth") ? null : ui.findType("parent", relation, father ? "father" : "mother");
     }
 
     private static String byGender(Person person, String male, String female, String other) {
