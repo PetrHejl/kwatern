@@ -571,6 +571,110 @@ class WebServerTest {
     }
 
     @Test
+    void marksParentsAndChildrenNotByBirth() throws Exception {
+        // I2 was born to I3 (F0) and grew up with foster parents I0 and I1 (F1). I5 was born to I3 and is
+        // a stepchild of I4 (F2), so the relation differs between the two parents.
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <database xmlns="http://gramps-project.org/xml/1.7.2/">
+                  <events>
+                    <event handle="_b0" change="1" id="E0"><type>Birth</type><dateval val="1893"/></event>
+                    <event handle="_d0" change="1" id="E1"><type>Death</type><dateval val="1968"/></event>
+                    <event handle="_b1" change="1" id="E2"><type>Birth</type><dateval val="1895"/></event>
+                    <event handle="_d1" change="1" id="E3"><type>Death</type><dateval val="1960"/></event>
+                    <event handle="_b2" change="1" id="E4"><type>Birth</type><dateval val="1915"/></event>
+                    <event handle="_d2" change="1" id="E5"><type>Death</type><dateval val="2011"/></event>
+                    <event handle="_b3" change="1" id="E6"><type>Birth</type><dateval val="1890"/></event>
+                    <event handle="_d3" change="1" id="E7"><type>Death</type><dateval val="1924"/></event>
+                    <event handle="_b4" change="1" id="E8"><type>Birth</type><dateval val="1885"/></event>
+                    <event handle="_d4" change="1" id="E9"><type>Death</type><dateval val="1950"/></event>
+                    <event handle="_b5" change="1" id="E10"><type>Birth</type><dateval val="1920"/></event>
+                    <event handle="_d5" change="1" id="E11"><type>Death</type><dateval val="2000"/></event>
+                  </events>
+                  <people>
+                    <person handle="_i0" change="1" id="I0"><gender>M</gender>
+                      <eventref hlink="_b0" role="Primary"/><eventref hlink="_d0" role="Primary"/>
+                      <parentin hlink="_f1"/></person>
+                    <person handle="_i1" change="1" id="I1"><gender>F</gender>
+                      <eventref hlink="_b1" role="Primary"/><eventref hlink="_d1" role="Primary"/>
+                      <parentin hlink="_f1"/></person>
+                    <person handle="_i2" change="1" id="I2"><gender>M</gender>
+                      <eventref hlink="_b2" role="Primary"/><eventref hlink="_d2" role="Primary"/>
+                      <childof hlink="_f0"/><childof hlink="_f1"/></person>
+                    <person handle="_i3" change="1" id="I3"><gender>F</gender>
+                      <eventref hlink="_b3" role="Primary"/><eventref hlink="_d3" role="Primary"/>
+                      <parentin hlink="_f0"/><parentin hlink="_f2"/></person>
+                    <person handle="_i4" change="1" id="I4"><gender>M</gender>
+                      <eventref hlink="_b4" role="Primary"/><eventref hlink="_d4" role="Primary"/>
+                      <parentin hlink="_f2"/></person>
+                    <person handle="_i5" change="1" id="I5"><gender>F</gender>
+                      <eventref hlink="_b5" role="Primary"/><eventref hlink="_d5" role="Primary"/>
+                      <childof hlink="_f0"/><childof hlink="_f2"/></person>
+                  </people>
+                  <families>
+                    <family handle="_f0" change="1" id="F0"><mother hlink="_i3"/>
+                      <childref hlink="_i2"/><childref hlink="_i5"/></family>
+                    <family handle="_f1" change="1" id="F1"><father hlink="_i0"/><mother hlink="_i1"/>
+                      <childref hlink="_i2" mrel="Foster" frel="Foster"/></family>
+                    <family handle="_f2" change="1" id="F2"><father hlink="_i4"/><mother hlink="_i3"/>
+                      <childref hlink="_i5" frel="Stepchild"/></family>
+                  </families>
+                </database>
+                """;
+        GrampsDatabase db = GrampsXml.read(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)))
+                .database();
+        var tree = new WebServer(new Site(
+                PrivacyFilter.apply(db, new ProbablyAlive(db, AliveRules.DEFAULTS, 2026)), Site.Options.DEFAULT));
+        int port = tree.start("127.0.0.1", 0);
+        try {
+            String fosterFather = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I0"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(
+                    Pattern.compile("Birth of son <a href=\"/person/I2\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
+                                    + "Foster</span>")
+                            .matcher(fosterFather)
+                            .find(),
+                    "the foster son's birth is marked in the timeline");
+            assertTrue(fosterFather.contains("<span class=\"nowrap relation\">Foster</span>"), "and in the diagram");
+
+            String fosterSon = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I2"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(
+                    fosterSon.contains("<div class=\"d-parents-label\">Foster parents · <a href=\"/family/F1\">"),
+                    "the foster parents are in the diagram under their own heading");
+            assertFalse(fosterSon.contains("nowrap relation"), "so their boxes do not repeat the relation");
+            assertTrue(
+                    Pattern.compile(
+                                    "Death of father <a href=\"/person/I0\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
+                                            + "Foster</span>")
+                            .matcher(fosterSon)
+                            .find(),
+                    "the foster father's death is in the timeline");
+
+            String stepchild = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I5"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertTrue(
+                    stepchild.contains("<div class=\"d-parents-label\">Other parents · <a href=\"/family/F2\">"),
+                    "parents with different relations are other parents");
+            assertEquals(
+                    1,
+                    stepchild.split("<span class=\"nowrap relation\">Stepchild</span>", -1).length - 1,
+                    "only the stepfather's box has the relation");
+        } finally {
+            tree.stop();
+        }
+    }
+
+    @Test
     void leavesMapsOutWhenOff() throws Exception {
         var off = new WebServer(new Site(published, new Site.Options("en", true, null, Site.MapOptions.OFF)));
         int port = off.start("127.0.0.1", 0);

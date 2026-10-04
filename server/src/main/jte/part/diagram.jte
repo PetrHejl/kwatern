@@ -5,11 +5,16 @@
 <section class="card">
     <h2>${ui.t("family")}</h2>
     <div class="diagram">
-        @if(diagram.father() != null || diagram.mother() != null)
-        <div class="d-parents">
-            @template.part.box(ui = ui, link = diagram.father(), role = ui.t("father"), relation = "")
-            @template.part.box(ui = ui, link = diagram.mother(), role = ui.t("mother"), relation = "")
+        @if(diagram.parents() != null)
+        @template.part.parents(ui = ui, parents = diagram.parents())
+        @endif
+        @for(var p : diagram.otherParents())
+        <div class="d-other-parents">
+            <div class="d-parents-label">${p.label()} · <a href="${p.url()}">${ui.t("family.page")}</a></div>
+            @template.part.parents(ui = ui, parents = p)
         </div>
+        @endfor
+        @if(diagram.parents() != null || !diagram.otherParents().isEmpty())
         <div class="d-line" aria-hidden="true"></div>
         @endif
         <div class="box self">

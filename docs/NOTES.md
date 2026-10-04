@@ -117,6 +117,14 @@ direction with these building blocks:
 - **Family:** a diagram in the sidebar: parents, the person (dark box), and one block per family in
   marriage order with the partner and children. More than 8 children show "and N more", linking to the
   family page. Siblings are rows: the first 5, then "Show N more".
+- **Parents not by birth:** a child's relation (Gramps `frel`/`mrel`) is shown towards one parent: the
+  relation to the person whose page it is, never the other parent's. The first family a person is a child
+  of is the main one, as in Gramps (ancestor charts follow it); further ones, such as foster parents, are
+  tinted pairs below it headed by the relation ("Foster parents") and a family page link. When the two
+  parents' relations differ (a stepfather married to the mother), or the page texts have no heading for
+  the relation, the heading is "Other parents" and each box says its relation. Family events and the
+  lifespans include all those parents; a row about a parent or child not by birth ends with the relation
+  ("Birth of son … · Foster"). Gramps' "Unknown" relation is shown like any other.
 - **Gender:** the initials avatar is tinted, blue for men, terracotta for women, grey for unknown or
   other; the two colours also differ in lightness, and a hidden label names the gender for screen
   readers. `--gender-colours=off` turns the tint off. Future charts may use a coloured box edge instead.
@@ -455,6 +463,7 @@ by default; both timeline features.
 - **Family events in the timeline:** births of siblings and children and deaths of parents, spouses,
   siblings and children during the person's life, as grey rows linking the relative. Shown by default,
   `?family=hide` hides them. Births of parents and spouses are left out; so are people who may be alive.
+  Parents of every family the person is a child of count (see "Parents not by birth").
 - **Family lifespans:** bars on one time axis for parents, the person and spouses, siblings and children,
   the person's lifetime shaded; only when at least three are known. Hidden on phones, where it would be too
   small to read. A bar ends at the death; for someone who may be alive (shown when living people are) it runs

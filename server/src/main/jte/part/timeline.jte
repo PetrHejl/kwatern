@@ -7,7 +7,7 @@
 @for(var e : events)
     @if(e.relative() != null)
     <div class="t-year family">${e.year()}</div>
-    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @template.part.person(ui = ui, link = e.relative())</div>
+    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @template.part.person(ui = ui, link = e.relative())@if(!e.description().isEmpty()) · <span class="relation">${e.description()}</span>@endif</div>
     @else
     <div class="t-year">${e.year()}</div>
     <div class="t-body">

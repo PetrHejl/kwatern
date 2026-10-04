@@ -341,6 +341,27 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         return person.handle().equals(family.father()) ? family.mother() : family.father();
     }
 
+    /** A child in the family of one of its parents, with the relation to that parent if it is not by birth. */
+    ChildView child(ChildRef ref, Family family, Person parent) {
+        return new ChildView(link(ref.child()), relationText(relationTo(ref, family, parent.handle())));
+    }
+
+    /**
+     * The child's relation to one parent of the family, as Gramps writes it ("Birth", "Foster"), or
+     * {@code null} if the person is not a parent of the family.
+     */
+    static String relationTo(ChildRef ref, Family family, String parent) {
+        if (parent.equals(family.father())) {
+            return ref.fatherRelation();
+        }
+        return parent.equals(family.mother()) ? ref.motherRelation() : null;
+    }
+
+    /** A child's relation to a parent for the page, or empty when it is by birth. */
+    String relationText(String relation) {
+        return relation == null || relation.equals("Birth") ? "" : ui.type("child", relation);
+    }
+
     ChildView child(ChildRef ref) {
         PersonLink person = link(ref.child());
         String relation = Objects.equals(ref.fatherRelation(), "Birth") && Objects.equals(ref.motherRelation(), "Birth")

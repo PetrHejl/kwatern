@@ -31,6 +31,7 @@ import me.hejl.kwatern.view.Pages.FamilyPage;
 import me.hejl.kwatern.view.Pages.Heading;
 import me.hejl.kwatern.view.Pages.LifespanChart;
 import me.hejl.kwatern.view.Pages.MediaTile;
+import me.hejl.kwatern.view.Pages.ParentsBlock;
 import me.hejl.kwatern.view.Pages.PersonHero;
 import me.hejl.kwatern.view.Pages.PersonLink;
 import me.hejl.kwatern.view.Pages.PersonPage;
@@ -102,23 +103,41 @@ final class PersonViews extends ViewPart {
                 familyMedia(family));
     }
 
-    /** A member of a person's close family, and what they are to the person: "father", "sister", "wife". */
-    record Relative(Person person, String relation, String group) {}
+    /**
+     * A member of a person's close family, and what they are to the person: "father", "sister", "wife".
+     *
+     * @param qualifier the relation between parent and child if it is not by birth, e.g. "Foster", else empty
+     * @param heading   the group's heading in the lifespans if not the usual one, e.g. "Foster parents"
+     */
+    record Relative(Person person, String relation, String group, String qualifier, String heading) {}
 
     /** Parents, spouses, siblings and children, each once, leaving out people who may be alive. */
     List<Relative> relatives(Person person) {
         List<Relative> relatives = new ArrayList<>();
         Set<String> seen = new HashSet<>(Set.of(person.handle()));
-        Person[] parents = parents(person);
-        addRelative(relatives, seen, parents[0], "father", "parents");
-        addRelative(relatives, seen, parents[1], "mother", "parents");
+        List<Family> parentFamilies = parentFamilies(person);
+        for (Family family : parentFamilies) {
+            String heading = family == parentFamilies.getFirst() ? "" : parentsLabel(person, family);
+            for (boolean father : new boolean[] {true, false}) {
+                db.people()
+                        .get(Objects.requireNonNullElse(father ? family.father() : family.mother(), ""))
+                        .ifPresent(p -> addRelative(
+                                relatives,
+                                seen,
+                                p,
+                                father ? "father" : "mother",
+                                "parents",
+                                relationText(relationOf(person, family, father)),
+                                heading));
+            }
+        }
         for (String familyHandle : person.families()) {
             db.families().get(familyHandle).ifPresent(family -> {
                 String partner = partnerOf(person, family);
                 db.people()
                         .get(partner == null ? "" : partner)
-                        .ifPresent(p ->
-                                addRelative(relatives, seen, p, byGender(p, "husband", "wife", "partner"), "couple"));
+                        .ifPresent(p -> addRelative(
+                                relatives, seen, p, byGender(p, "husband", "wife", "partner"), "couple", "", ""));
             });
         }
         for (String familyHandle : person.parentFamilies()) {
@@ -132,7 +151,9 @@ final class PersonViews extends ViewPart {
                                             seen,
                                             s,
                                             byGender(s, "brother", "sister", "sibling"),
-                                            "siblings"))));
+                                            "siblings",
+                                            "",
+                                            ""))));
         }
         for (String familyHandle : person.families()) {
             db.families()
@@ -141,15 +162,79 @@ final class PersonViews extends ViewPart {
                             .forEach(ref -> db.people()
                                     .get(ref.child())
                                     .ifPresent(c -> addRelative(
-                                            relatives, seen, c, byGender(c, "son", "daughter", "child"), "children"))));
+                                            relatives,
+                                            seen,
+                                            c,
+                                            byGender(c, "son", "daughter", "child"),
+                                            "children",
+                                            relationText(relationTo(ref, family, person.handle())),
+                                            ""))));
         }
         return relatives;
     }
 
-    private void addRelative(List<Relative> relatives, Set<String> seen, Person person, String relation, String group) {
-        if (person != null && !data.isLiving(person.handle()) && seen.add(person.handle())) {
-            relatives.add(new Relative(person, relation, group));
+    private void addRelative(
+            List<Relative> relatives,
+            Set<String> seen,
+            Person person,
+            String relation,
+            String group,
+            String qualifier,
+            String heading) {
+        if (!data.isLiving(person.handle()) && seen.add(person.handle())) {
+            relatives.add(new Relative(person, relation, group, qualifier, heading));
         }
+    }
+
+    /** The families a person is a child of, the main one first as in Gramps. */
+    private List<Family> parentFamilies(Person person) {
+        return person.parentFamilies().stream()
+                .map(h -> db.families().get(h).orElse(null))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    /** A person's relation to the father or the mother of a family they are a child of, as Gramps writes it. */
+    private static String relationOf(Person person, Family family, boolean father) {
+        return family.children().stream()
+                .filter(ref -> ref.child().equals(person.handle()))
+                .findFirst()
+                .map(ref -> father ? ref.fatherRelation() : ref.motherRelation())
+                .orElse("Birth");
+    }
+
+    /**
+     * The relation to both known parents of a family, or {@code null} if it differs between them, as for a
+     * stepfather married to the mother.
+     */
+    private static String commonRelation(Person person, Family family) {
+        String father = relationOf(person, family, true);
+        String mother = relationOf(person, family, false);
+        if (family.father() == null) {
+            return mother;
+        }
+        return family.mother() == null || father.equals(mother) ? father : null;
+    }
+
+    /** The heading of further parents: "Foster parents" where the page texts name the relation, else "Other parents". */
+    private String parentsLabel(Person person, Family family) {
+        String label = ui.findType("parents", commonRelation(person, family));
+        return label != null ? label : ui.t("parents.other");
+    }
+
+    /**
+     * The parents of a family the person is a child of. The main parents have no heading; further ones are
+     * headed by their relation, or by "Other parents" with the relation on each parent if the texts name none.
+     */
+    private ParentsBlock parentsBlock(Person person, Family family, boolean main) {
+        boolean named = !main && ui.findType("parents", commonRelation(person, family)) != null;
+        return new ParentsBlock(
+                main ? "" : parentsLabel(person, family),
+                main ? "" : Urls.family(family),
+                link(family.father()),
+                named ? "" : relationText(relationOf(person, family, true)),
+                link(family.mother()),
+                named ? "" : relationText(relationOf(person, family, false)));
     }
 
     private static String byGender(Person person, String male, String female, String other) {
@@ -197,7 +282,7 @@ final class PersonViews extends ViewPart {
                         "",
                         "",
                         "",
-                        "",
+                        relative.qualifier(),
                         "",
                         null,
                         List.of(),
@@ -214,8 +299,9 @@ final class PersonViews extends ViewPart {
             }
             for (Relative relative : relatives) {
                 if (relative.group().equals(group)) {
-                    life(relative.person(), ui.t("lifespans.group." + group), false, currentYear)
-                            .ifPresent(lives::add);
+                    String heading =
+                            relative.heading().isEmpty() ? ui.t("lifespans.group." + group) : relative.heading();
+                    life(relative.person(), heading, false, currentYear).ifPresent(lives::add);
                 }
             }
         }
@@ -469,16 +555,12 @@ final class PersonViews extends ViewPart {
     }
 
     private Diagram diagram(Person person) {
-        PersonLink father = null;
-        PersonLink mother = null;
-        if (!person.parentFamilies().isEmpty()) {
-            Family parents =
-                    db.families().get(person.parentFamilies().getFirst()).orElse(null);
-            if (parents != null) {
-                father = link(parents.father());
-                mother = link(parents.mother());
-            }
-        }
+        List<Family> parentFamilies = parentFamilies(person);
+        List<ParentsBlock> parents = parentFamilies.stream()
+                .map(family -> parentsBlock(person, family, family == parentFamilies.getFirst()))
+                .filter(block -> block.father() != null || block.mother() != null)
+                .toList();
+        boolean main = !parents.isEmpty() && parents.getFirst().url().isEmpty();
         List<Family> families = person.families().stream()
                 .map(h -> db.families().get(h).orElse(null))
                 .filter(Objects::nonNull)
@@ -490,8 +572,9 @@ final class PersonViews extends ViewPart {
             Person partner = partnerHandle == null
                     ? null
                     : db.people().get(partnerHandle).orElse(null);
-            List<ChildView> children =
-                    family.children().stream().map(this::child).toList();
+            List<ChildView> children = family.children().stream()
+                    .map(ref -> child(ref, family, person))
+                    .toList();
             blocks.add(new FamilyBlock(
                     Urls.family(family),
                     familyLabel(family),
@@ -501,7 +584,11 @@ final class PersonViews extends ViewPart {
                     children.size(),
                     Math.max(0, children.size() - DIAGRAM_CHILDREN)));
         }
-        return new Diagram(father, mother, link(person), blocks);
+        return new Diagram(
+                main ? parents.getFirst() : null,
+                main ? parents.subList(1, parents.size()) : parents,
+                link(person),
+                blocks);
     }
 
     private String familyLabel(Family family) {
