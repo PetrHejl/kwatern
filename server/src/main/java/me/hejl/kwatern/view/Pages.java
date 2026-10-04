@@ -146,8 +146,9 @@ public final class Pages {
     /**
      * The parents of one family a person is a child of, in the family diagram.
      *
-     * @param label           e.g. "Foster parents"; empty for the main parents, which are shown without one
-     * @param url             the family page, or empty for the main parents
+     * @param label           e.g. "Birth parents" or "Foster parents"; empty when the person has only one
+     *                        family of parents, which needs no heading
+     * @param url             the family page, or empty without a label
      * @param father          {@code null} if unknown
      * @param fatherRelation  the person's relation to the father if it is not by birth and not in the label
      */
@@ -162,11 +163,10 @@ public final class Pages {
     /**
      * Parents above, the person, and one block per family below.
      *
-     * @param parents      the first family the person is a child of, as in Gramps, or {@code null}
-     * @param otherParents the further families the person is a child of, such as foster parents
+     * @param parents the families the person is a child of that have a known parent, the main one first as in
+     *                Gramps, then others such as foster parents
      */
-    public record Diagram(
-            ParentsBlock parents, List<ParentsBlock> otherParents, PersonLink self, List<FamilyBlock> families) {}
+    public record Diagram(List<ParentsBlock> parents, PersonLink self, List<FamilyBlock> families) {}
 
     /**
      * A person's name for the page heading, split so the surname can be emphasised.

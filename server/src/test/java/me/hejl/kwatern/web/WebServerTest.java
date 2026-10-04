@@ -638,17 +638,21 @@ class WebServerTest {
                             .matcher(fosterFather)
                             .find(),
                     "the foster son's birth is marked in the timeline");
-            assertTrue(fosterFather.contains("<span class=\"nowrap relation\">Foster</span>"), "and in the diagram");
+            assertTrue(fosterFather.contains("<span class=\"box-sub relation\">Foster</span>"), "and in the diagram");
 
             String fosterSon = CLIENT.send(
                             HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I2"))
                                     .build(),
                             HttpResponse.BodyHandlers.ofString())
                     .body();
+            int birthParents =
+                    fosterSon.indexOf("<div class=\"d-parents-label\">Birth parents · <a href=\"/family/F0\">");
+            int fosterParents =
+                    fosterSon.indexOf("<div class=\"d-parents-label\">Foster parents · <a href=\"/family/F1\">");
             assertTrue(
-                    fosterSon.contains("<div class=\"d-parents-label\">Foster parents · <a href=\"/family/F1\">"),
-                    "the foster parents are in the diagram under their own heading");
-            assertFalse(fosterSon.contains("nowrap relation"), "so their boxes do not repeat the relation");
+                    birthParents >= 0 && fosterParents > birthParents,
+                    "both pairs of parents are headed, the main ones first");
+            assertFalse(fosterSon.contains("box-sub relation"), "so their boxes do not repeat the relation");
             assertTrue(
                     Pattern.compile(
                                     "Death of father <a href=\"/person/I0\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
@@ -667,7 +671,7 @@ class WebServerTest {
                     "parents with different relations are other parents");
             assertEquals(
                     1,
-                    stepchild.split("<span class=\"nowrap relation\">Stepchild</span>", -1).length - 1,
+                    stepchild.split("<span class=\"box-sub relation\">Stepchild</span>", -1).length - 1,
                     "only the stepfather's box has the relation");
         } finally {
             tree.stop();

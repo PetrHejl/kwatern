@@ -119,12 +119,15 @@ direction with these building blocks:
   family page. Siblings are rows: the first 5, then "Show N more".
 - **Parents not by birth:** a child's relation (Gramps `frel`/`mrel`) is shown towards one parent: the
   relation to the person whose page it is, never the other parent's. The first family a person is a child
-  of is the main one, as in Gramps (ancestor charts follow it); further ones, such as foster parents, are
-  tinted pairs below it headed by the relation ("Foster parents") and a family page link. When the two
-  parents' relations differ (a stepfather married to the mother), or the page texts have no heading for
-  the relation, the heading is "Other parents" and each box says its relation. Family events and the
-  lifespans include all those parents; a row about a parent or child not by birth ends with the relation
-  ("Birth of son … · Foster"). Gramps' "Unknown" relation is shown like any other.
+  of is the main one, as in Gramps (ancestor charts follow it), and is shown first; further ones, such as
+  foster parents, follow. With more than one, every pair is headed by its relation ("Birth parents",
+  "Foster parents") and a family page link, with equal weight: a tinted or unlabelled main pair made the
+  other one look like the real family. When the two parents' relations differ (a stepfather married to the
+  mother), or the page texts have no heading for the relation, the heading is "Parents" (main) or "Other
+  parents" and each box says its relation. In a box the relation is a line of its own that may wrap, as
+  "V pěstounské péči" does not fit beside the years. Family events and the lifespans include all those
+  parents, the lifespans under the same headings; a row about a parent or child not by birth ends with the
+  relation ("Birth of son … · Foster"). Gramps' "Unknown" relation is shown like any other.
 - **Gender:** the initials avatar is tinted, blue for men, terracotta for women, grey for unknown or
   other; the two colours also differ in lightness, and a hidden label names the gender for screen
   readers. `--gender-colours=off` turns the tint off. Future charts may use a coloured box edge instead.

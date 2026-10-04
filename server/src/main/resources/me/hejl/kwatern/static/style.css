@@ -339,19 +339,11 @@ a.living { color: var(--muted); font-style: italic; }
 .diagram { display: flex; flex-direction: column; }
 .d-parents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 .d-line { width: 2px; height: var(--space-4); margin: 0 auto; background: var(--connector); }
-.d-other-parents {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
-    padding: var(--space-3);
-    border-radius: var(--radius);
-    background: var(--bg);
-}
-.d-other-parents .box { background: var(--surface); }
+.d-parents-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.d-parents-group + .d-parents-group { margin-top: var(--space-4); }
 .d-parents-label a { text-transform: none; letter-spacing: 0; }
 /* A child's relation to a parent other than by birth, as "Foster", in boxes and timeline rows. */
-.relation { color: var(--adopted); }
+.relation, .box-sub.relation { color: var(--adopted); }
 .box {
     display: flex;
     align-items: center;
