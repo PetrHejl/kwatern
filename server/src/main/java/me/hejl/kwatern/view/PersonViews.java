@@ -117,9 +117,8 @@ final class PersonViews extends ViewPart {
         Set<String> seen = new HashSet<>(Set.of(person.handle()));
         List<Family> parentFamilies = parentFamilies(person);
         for (Family family : parentFamilies) {
-            String heading = severalParents(parentFamilies)
-                    ? parentsLabel(person, family, family == parentFamilies.getFirst())
-                    : "";
+            String heading =
+                    parentFamilies.size() > 1 ? parentsLabel(person, family, family == parentFamilies.getFirst()) : "";
             for (boolean father : new boolean[] {true, false}) {
                 db.people()
                         .get(Objects.requireNonNullElse(father ? family.father() : family.mother(), ""))
@@ -129,7 +128,7 @@ final class PersonViews extends ViewPart {
                                 p,
                                 father ? "father" : "mother",
                                 "parents",
-                                relationText(relationOf(person, family, father)),
+                                parentText(relationOf(person, family, father), father),
                                 heading));
             }
         }
@@ -188,11 +187,14 @@ final class PersonViews extends ViewPart {
         }
     }
 
-    /** The families a person is a child of, the main one first as in Gramps. */
+    /**
+     * The families a person is a child of that have a known parent, the main one first as in Gramps. A family
+     * whose parents are all unknown or not published is left out, so the next one counts as the main one.
+     */
     private List<Family> parentFamilies(Person person) {
         return person.parentFamilies().stream()
                 .map(h -> db.families().get(h).orElse(null))
-                .filter(Objects::nonNull)
+                .filter(f -> f != null && (known(f.father()) || known(f.mother())))
                 .toList();
     }
 
@@ -218,17 +220,6 @@ final class PersonViews extends ViewPart {
         return family.mother() == null || father.equals(mother) ? father : null;
     }
 
-    /**
-     * Whether the parents need headings to tell them apart: when more than one family the person is a child of
-     * has a known parent, as with birth and foster parents.
-     */
-    private boolean severalParents(List<Family> parentFamilies) {
-        return parentFamilies.stream()
-                        .filter(f -> known(f.father()) || known(f.mother()))
-                        .count()
-                > 1;
-    }
-
     private boolean known(String person) {
         return person != null && db.people().get(person).isPresent();
     }
@@ -244,7 +235,8 @@ final class PersonViews extends ViewPart {
 
     /**
      * The parents of a family the person is a child of. With several families, each pair is headed by its
-     * relation, or by "Parents" or "Other parents" with the relation on each parent if the texts name none.
+     * relation, or by "Parents" or "Other parents" if the texts name none; a parent not by birth whose relation
+     * is not in a heading is called by it ("Foster father") instead of "Father".
      */
     private ParentsBlock parentsBlock(Person person, Family family, boolean main, boolean headed) {
         boolean named = headed && ui.findType("parents", commonRelation(person, family)) != null;
@@ -252,9 +244,14 @@ final class PersonViews extends ViewPart {
                 headed ? parentsLabel(person, family, main) : "",
                 headed ? Urls.family(family) : "",
                 link(family.father()),
-                named ? "" : relationText(relationOf(person, family, true)),
+                parentRole(person, family, true, named),
                 link(family.mother()),
-                named ? "" : relationText(relationOf(person, family, false)));
+                parentRole(person, family, false, named));
+    }
+
+    private String parentRole(Person person, Family family, boolean father, boolean named) {
+        String relation = named ? "" : parentText(relationOf(person, family, father), father);
+        return relation.isEmpty() ? ui.t(father ? "father" : "mother") : relation;
     }
 
     private static String byGender(Person person, String male, String female, String other) {
@@ -577,9 +574,8 @@ final class PersonViews extends ViewPart {
     private Diagram diagram(Person person) {
         List<Family> parentFamilies = parentFamilies(person);
         List<ParentsBlock> parents = parentFamilies.stream()
-                .map(family -> parentsBlock(
-                        person, family, family == parentFamilies.getFirst(), severalParents(parentFamilies)))
-                .filter(block -> block.father() != null || block.mother() != null)
+                .map(family ->
+                        parentsBlock(person, family, family == parentFamilies.getFirst(), parentFamilies.size() > 1))
                 .toList();
         List<Family> families = person.families().stream()
                 .map(h -> db.families().get(h).orElse(null))

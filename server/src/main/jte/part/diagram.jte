@@ -15,8 +15,11 @@
         </div>
         @endif
         @endfor
-        @if(!diagram.parents().isEmpty())
+        @if(diagram.parents().size() == 1)
         <div class="d-line" aria-hidden="true"></div>
+        @elseif(diagram.parents().size() > 1)
+        <%-- No line under several pairs: it would join the person to the last one only; the headings say who is who. --%>
+        <div class="d-gap"></div>
         @endif
         <div class="box self">
             @template.part.avatar(link = diagram.self())

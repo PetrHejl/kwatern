@@ -148,17 +148,13 @@ public final class Pages {
      *
      * @param label           e.g. "Birth parents" or "Foster parents"; empty when the person has only one
      *                        family of parents, which needs no heading
-     * @param url             the family page, or empty without a label
-     * @param father          {@code null} if unknown
-     * @param fatherRelation  the person's relation to the father if it is not by birth and not in the label
+     * @param url        the family page, or empty without a label
+     * @param father     {@code null} if unknown
+     * @param fatherRole "Father", or what he is to the person if not by birth and not in the label, as
+     *                   "Foster father"
      */
     public record ParentsBlock(
-            String label,
-            String url,
-            PersonLink father,
-            String fatherRelation,
-            PersonLink mother,
-            String motherRelation) {}
+            String label, String url, PersonLink father, String fatherRole, PersonLink mother, String motherRole) {}
 
     /**
      * Parents above, the person, and one block per family below.

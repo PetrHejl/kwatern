@@ -362,6 +362,18 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         return relation == null || relation.equals("Birth") ? "" : ui.type("child", relation);
     }
 
+    /**
+     * What a parent is to a child not by birth, as "Foster father" or "Stepmother", from the parent's side;
+     * empty when by birth. A custom relation is shown as entered.
+     */
+    String parentText(String relation, boolean father) {
+        if (relation == null || relation.equals("Birth")) {
+            return "";
+        }
+        String text = ui.findType("parent", relation, father ? "father" : "mother");
+        return text != null ? text : ui.type("parent", relation);
+    }
+
     ChildView child(ChildRef ref) {
         PersonLink person = link(ref.child());
         String relation = Objects.equals(ref.fatherRelation(), "Birth") && Objects.equals(ref.motherRelation(), "Birth")

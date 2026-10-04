@@ -124,12 +124,21 @@ direction with these building blocks:
   "Foster parents") and a family page link, with equal weight: a tinted or unlabelled main pair made the
   other one look like the real family. When the two parents' relations differ (a stepfather married to the
   mother), or the page texts have no heading for the relation, the heading is "Parents" (main) or "Other
-  parents" and each box says its relation. In a box the relation is a line of its own that may wrap, as
-  "V pěstounské péči" does not fit beside the years. It is in the secondary text colour like the years: a
-  colour of its own was close to the women's tint and made grey family rows outshine the person's own
-  events; the wording and the line of its own set it apart enough. Family events and the lifespans include all those
-  parents, the lifespans under the same headings; a row about a parent or child not by birth ends with the
-  relation ("Birth of son … · Foster"). Gramps' "Unknown" relation is shown like any other.
+  parents". A family whose parents are all unknown or unpublished is left out, and the next one is the main
+  one. Several pairs have no connector line to the person: it would join them to the last pair only.
+- **Relation words, from each side:** the `child.*` texts ("Foster", "Pflegekind", "V pěstounské péči")
+  describe the child, so they appear only about children: in a child's box on a parent's page, on a line of
+  its own that may wrap (long texts do not fit beside the years), and after rows about a child ("Birth of
+  son … · Foster"). About a parent the `parent.*` texts say what the parent is ("Foster father",
+  "Pflegevater", "Pěstoun"): as the role in their box instead of "Father" when the relation is not in a
+  heading, and after rows about them ("Death of father … · Foster father"). A custom relation is shown as
+  entered on both sides; Gramps' "Unknown" like any other. The relation is in the secondary text colour like
+  the years: a colour of its own was close to the women's tint and made grey family rows outshine the
+  person's own events. Family events and the lifespans include the parents of every parent family, the
+  lifespans under the same headings as the diagram.
+- **Private child references:** a person's link to a family whose child reference to them is private is
+  hidden with it, as in Gramps' private proxy (`gen/proxy/private.py` `sanitize_person`), so neither those
+  parents nor the ancestors through them are published.
 - **Gender:** the initials avatar is tinted, blue for men, terracotta for women, grey for unknown or
   other; the two colours also differ in lightness, and a hidden label names the gender for screen
   readers. `--gender-colours=off` turns the tint off. Future charts may use a coloured box edge instead.
@@ -582,6 +591,10 @@ Third-party material and what it requires:
 - **Rarer calendars:** Hebrew month numbering in non-leap years follows Gramps (Adar I and Adar II both
   mean Adar); only tested on a few dates.
 - **Notes:** styles (bold, links) are not rendered yet.
+- **Siblings not by birth:** siblings come from every parent family but carry no relation, so on a foster
+  child's page the foster parents' own child is "Birth of brother", and the siblings card does not tell
+  foster or half-siblings apart. Gramps records no sibling relation; it would follow from the families and
+  child relations they share.
 - **Surname index:** surnames that do not start with a letter of the page language's alphabet go under
   ICU's "…" heading.
 - **Native image:** ICU 78.3 needs its data included explicitly

@@ -573,7 +573,8 @@ class WebServerTest {
     @Test
     void marksParentsAndChildrenNotByBirth() throws Exception {
         // I2 was born to I3 (F0) and grew up with foster parents I0 and I1 (F1). I5 was born to I3 and is
-        // a stepchild of I4 (F2), so the relation differs between the two parents.
+        // a stepchild of I4 (F2), so the relation differs between the two parents. I6 has only her foster
+        // parents (F1).
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <database xmlns="http://gramps-project.org/xml/1.7.2/">
@@ -590,6 +591,8 @@ class WebServerTest {
                     <event handle="_d4" change="1" id="E9"><type>Death</type><dateval val="1950"/></event>
                     <event handle="_b5" change="1" id="E10"><type>Birth</type><dateval val="1920"/></event>
                     <event handle="_d5" change="1" id="E11"><type>Death</type><dateval val="2000"/></event>
+                    <event handle="_b6" change="1" id="E12"><type>Birth</type><dateval val="1925"/></event>
+                    <event handle="_d6" change="1" id="E13"><type>Death</type><dateval val="2005"/></event>
                   </events>
                   <people>
                     <person handle="_i0" change="1" id="I0"><gender>M</gender>
@@ -610,12 +613,16 @@ class WebServerTest {
                     <person handle="_i5" change="1" id="I5"><gender>F</gender>
                       <eventref hlink="_b5" role="Primary"/><eventref hlink="_d5" role="Primary"/>
                       <childof hlink="_f0"/><childof hlink="_f2"/></person>
+                    <person handle="_i6" change="1" id="I6"><gender>F</gender>
+                      <eventref hlink="_b6" role="Primary"/><eventref hlink="_d6" role="Primary"/>
+                      <childof hlink="_f1"/></person>
                   </people>
                   <families>
                     <family handle="_f0" change="1" id="F0"><mother hlink="_i3"/>
                       <childref hlink="_i2"/><childref hlink="_i5"/></family>
                     <family handle="_f1" change="1" id="F1"><father hlink="_i0"/><mother hlink="_i1"/>
-                      <childref hlink="_i2" mrel="Foster" frel="Foster"/></family>
+                      <childref hlink="_i2" mrel="Foster" frel="Foster"/>
+                      <childref hlink="_i6" mrel="Foster" frel="Foster"/></family>
                     <family handle="_f2" change="1" id="F2"><father hlink="_i4"/><mother hlink="_i3"/>
                       <childref hlink="_i5" frel="Stepchild"/></family>
                   </families>
@@ -633,8 +640,9 @@ class WebServerTest {
                             HttpResponse.BodyHandlers.ofString())
                     .body();
             assertTrue(
-                    Pattern.compile("Birth of son <a href=\"/person/I2\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
-                                    + "Foster</span>")
+                    Pattern.compile(
+                                    "Birth of son <span><a href=\"/person/I2\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
+                                            + "Foster</span>")
                             .matcher(fosterFather)
                             .find(),
                     "the foster son's birth is marked in the timeline");
@@ -652,14 +660,15 @@ class WebServerTest {
             assertTrue(
                     birthParents >= 0 && fosterParents > birthParents,
                     "both pairs of parents are headed, the main ones first");
-            assertFalse(fosterSon.contains("box-sub relation"), "so their boxes do not repeat the relation");
+            assertFalse(fosterSon.contains("Foster father ·"), "so their boxes do not repeat the relation");
+            assertFalse(fosterSon.contains("class=\"d-line\""), "no line joins him to one of the pairs");
             assertTrue(
                     Pattern.compile(
-                                    "Death of father <a href=\"/person/I0\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
-                                            + "Foster</span>")
+                                    "Death of father <span><a href=\"/person/I0\"[^>]*>[^<]*</a>\\s* · <span class=\"relation\">"
+                                            + "Foster father</span>")
                             .matcher(fosterSon)
                             .find(),
-                    "the foster father's death is in the timeline");
+                    "the foster father's death is in the timeline, named from his side");
 
             String stepchild = CLIENT.send(
                             HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I5"))
@@ -669,10 +678,21 @@ class WebServerTest {
             assertTrue(
                     stepchild.contains("<div class=\"d-parents-label\">Other parents · <a href=\"/family/F2\">"),
                     "parents with different relations are other parents");
-            assertEquals(
-                    1,
-                    stepchild.split("<span class=\"box-sub relation\">Stepchild</span>", -1).length - 1,
-                    "only the stepfather's box has the relation");
+            assertTrue(
+                    stepchild.contains("<span class=\"nowrap\">Stepfather</span>"),
+                    "the stepfather is called so, not by the child's word");
+            assertFalse(stepchild.contains("Stepchild"), "which is nowhere on her page");
+
+            // A foster child whose only parents are the foster parents: no heading, the line, and their roles.
+            String onlyFoster = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I6"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            assertFalse(onlyFoster.contains("d-parents-label"));
+            assertTrue(onlyFoster.contains("class=\"d-line\""));
+            assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster father</span>"));
+            assertTrue(onlyFoster.contains("<span class=\"nowrap\">Foster mother</span>"));
         } finally {
             tree.stop();
         }

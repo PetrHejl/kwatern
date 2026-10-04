@@ -338,6 +338,7 @@ a.living { color: var(--muted); font-style: italic; }
 .d-line { width: 2px; height: var(--space-4); margin: 0 auto; background: var(--connector); }
 .d-parents-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .d-parents-group + .d-parents-group { margin-top: var(--space-4); }
+.d-gap { height: var(--space-4); }
 .d-parents-label a { text-transform: none; letter-spacing: 0; }
 .box {
     display: flex;
