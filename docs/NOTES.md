@@ -99,7 +99,9 @@ Decisions, known differences from Gramps, and open items. Keep this file current
   people), person I0044, 1280 px wide, light theme, `--living=show --private=show`. Its photos are public domain on
   Wikimedia Commons except `Gunnlaugur_Larusson_-_Yawn.jpg` and `scanned_microfilm.png`, whose source is unclear;
   those two `<object>`s and their `<objref>`s are removed from the copy used for screenshots. Map tiles do not load
-  in headless Firefox (`firefox --headless --screenshot`), so there is no map screenshot.
+  in headless Firefox (`firefox --headless --screenshot`), so there is no map screenshot. The photos are in the
+  Gramps repository (`example/gramps` at the tag); serve them with `--media-dir`. Photo tiles load lazily, so request
+  the page and its thumbnails once before the screenshot, or a tile may be empty.
 
 ## Web design
 
