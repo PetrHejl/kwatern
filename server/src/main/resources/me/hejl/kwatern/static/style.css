@@ -111,7 +111,6 @@
     --self-bg: #2c333b;
     --self-fg: #ffffff;
     --self-muted: #c9d0d8;
-    --adopted: #8a4312;
     --male-bg: #dbe7f2;
     --male-fg: #174b73;
     --female-bg: #f6e1d5;
@@ -142,7 +141,6 @@
         --self-bg: #e8eaed;
         --self-fg: #16191d;
         --self-muted: #3d4550;
-        --adopted: #e7a36f;
         --male-bg: #23374a;
         --male-fg: #a9cdee;
         --female-bg: #4a2e22;
@@ -170,7 +168,6 @@
     --self-bg: #e8eaed;
     --self-fg: #16191d;
     --self-muted: #3d4550;
-    --adopted: #e7a36f;
     --male-bg: #23374a;
     --male-fg: #a9cdee;
     --female-bg: #4a2e22;
@@ -342,8 +339,6 @@ a.living { color: var(--muted); font-style: italic; }
 .d-parents-group { display: flex; flex-direction: column; gap: var(--space-2); }
 .d-parents-group + .d-parents-group { margin-top: var(--space-4); }
 .d-parents-label a { text-transform: none; letter-spacing: 0; }
-/* A child's relation to a parent other than by birth, as "Foster", in boxes and timeline rows. */
-.relation, .box-sub.relation { color: var(--adopted); }
 .box {
     display: flex;
     align-items: center;

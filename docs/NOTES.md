@@ -125,7 +125,9 @@ direction with these building blocks:
   other one look like the real family. When the two parents' relations differ (a stepfather married to the
   mother), or the page texts have no heading for the relation, the heading is "Parents" (main) or "Other
   parents" and each box says its relation. In a box the relation is a line of its own that may wrap, as
-  "V pěstounské péči" does not fit beside the years. Family events and the lifespans include all those
+  "V pěstounské péči" does not fit beside the years. It is in the secondary text colour like the years: a
+  colour of its own was close to the women's tint and made grey family rows outshine the person's own
+  events; the wording and the line of its own set it apart enough. Family events and the lifespans include all those
   parents, the lifespans under the same headings; a row about a parent or child not by birth ends with the
   relation ("Birth of son … · Foster"). Gramps' "Unknown" relation is shown like any other.
 - **Gender:** the initials avatar is tinted, blue for men, terracotta for women, grey for unknown or
