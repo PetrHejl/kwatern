@@ -29,7 +29,7 @@ class MessagesTest {
             Pattern.compile("(event|role|family|child|name|attribute|placetype|medium)\\.[a-z0-9_]+");
 
     // Language-neutral texts a translation may leave to the base file.
-    private static final Set<String> NEUTRAL = Set.of("lifespan.both");
+    private static final Set<String> NEUTRAL = Set.of("lifespan.both", "year.about");
 
     private static Properties load(String suffix) throws Exception {
         String name = "me/hejl/kwatern/messages" + suffix + ".properties";

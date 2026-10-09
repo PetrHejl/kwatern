@@ -114,6 +114,9 @@ direction with these building blocks:
   Without a photo the round portrait shows initials.
 - **Person links:** in lists, whole rows with an initials avatar and years; inside sentences, plain text
   links. Names in links, boxes and titles read "Given Surname"; lists are sorted by surname.
+- **Years in lists and charts:** a year from a "before" or "after" date carries a short word ("bef. 1850", "1850–aft.
+  1920"), since "~" alone made a death after 1920 read as about 1920. "About", ranges, spans and estimated or
+  calculated dates keep "~". The word and year are joined by a non-breaking space.
 - **Sources:** each event has a "N sources" button that opens the citations (source, page, date,
   confidence), plus "All sources on this page" at the bottom, each once with what it supports.
 - **Family:** a diagram in the sidebar: parents, the person (dark box), and one block per family in

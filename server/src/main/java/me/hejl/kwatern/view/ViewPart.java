@@ -263,7 +263,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         return died.isEmpty() ? "" : ui.t("lifespan.died", died);
     }
 
-    static String year(Event event) {
+    String year(Event event) {
         if (event == null || event.date() == null) {
             return "";
         }
@@ -271,9 +271,15 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         if (year.isEmpty()) {
             return "";
         }
-        boolean exact = event.date().modifier() == GrampsDate.Modifier.NONE
-                && event.date().quality() == GrampsDate.Quality.REGULAR;
-        return (exact ? "" : "~") + year.getAsInt();
+        String text = String.valueOf(year.getAsInt());
+        GrampsDate date = event.date();
+        // Before and after say which way the year may be off, so a death "after 1920" does not read as about 1920.
+        return switch (date.modifier()) {
+            case BEFORE -> ui.t("year.before", text);
+            case AFTER -> ui.t("year.after", text);
+            case NONE -> date.quality() == GrampsDate.Quality.REGULAR ? text : ui.t("year.about", text);
+            default -> ui.t("year.about", text); // about, ranges, spans and text-only dates
+        };
     }
 
     /** The first dated primary event of the given types, in order of preference; else the first undated. */
