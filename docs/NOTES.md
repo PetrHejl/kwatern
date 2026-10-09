@@ -194,6 +194,11 @@ direction with these building blocks:
   good; any other request for it is revalidated, so a new build never shows with an old stylesheet. The other
   static files (Leaflet, `map.js`) are revalidated too, with an ETag from their content, so a map page does not
   fetch Leaflet's 150 KB again each time. They are read once and kept in memory.
+- **Favicon:** `static/icon.svg`, a pedigree on its side that reads as a K (the person as the stem, the parents as
+  the branches), on a rounded square in `--accent`; chosen from five ideas (a register volume, a volume with a
+  tree, a monogram, a shelf of volumes) as it stays clear at 16 px and still says genealogy. Its own
+  `prefers-color-scheme` rule gives the dark colours, so it follows the system, not `--theme`, which a favicon
+  cannot see. SVG only: current browsers take it from the `<link>` and do not ask for `/favicon.ico`.
 - **Fonts:** Manrope and Source Sans 3 are bundled (Latin and Latin Extended, 217 KB, SIL Open Font
   License, from Fontsource). Other scripts use system fonts. Loading them from Google Fonts would break
   the Content Security Policy and tell Google who visits.
