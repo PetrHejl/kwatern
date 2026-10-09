@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
 <!-- A pedigree on its side, read as a K: the person as the stem, the parents as the branches.
-     The colours of style.css: --accent under white, and in the dark theme under --bg. -->
+     The colours of style.css: the accent under white, and in the dark theme under the background. -->
 <style>
 .tile { fill: #1d5c8c; }
 .line { fill: none; stroke: #ffffff; stroke-width: 3.4; }

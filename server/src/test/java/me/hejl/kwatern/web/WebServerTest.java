@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,6 +19,8 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamReader;
 import me.hejl.gramps.model.GrampsDatabase;
 import me.hejl.gramps.model.Header;
 import me.hejl.gramps.model.Person;
@@ -90,6 +93,11 @@ class WebServerTest {
         var icon = get("/static/icon.svg", null);
         assertEquals(200, icon.statusCode());
         assertEquals("image/svg+xml", icon.headers().firstValue("Content-Type").orElseThrow());
+        // Browsers show nothing for an SVG that is not well-formed, such as one with "--" in a comment.
+        XMLStreamReader svg = XMLInputFactory.newInstance().createXMLStreamReader(new StringReader(icon.body()));
+        while (svg.hasNext()) {
+            svg.next();
+        }
     }
 
     @Test
