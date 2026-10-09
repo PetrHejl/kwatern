@@ -183,6 +183,7 @@ final class PageSnapshot {
         List<String> paths = new ArrayList<>(List.of(
                 Urls.stylesheet(),
                 "/static/style.css",
+                "/static/icon.svg",
                 "/static/map.js",
                 "/static/leaflet/leaflet.js",
                 "/static/leaflet/leaflet.css",

@@ -86,6 +86,10 @@ class WebServerTest {
         assertTrue(lewis.contains("class=\"box self\""), "family diagram");
         assertTrue(lewis.contains("gender-colours"), "gender colours on");
         assertEquals(200, get("/static/style.css", null).statusCode());
+        assertTrue(lewis.contains("<link rel=\"icon\" href=\"/static/icon.svg\""), "favicon");
+        var icon = get("/static/icon.svg", null);
+        assertEquals(200, icon.statusCode());
+        assertEquals("image/svg+xml", icon.headers().firstValue("Content-Type").orElseThrow());
     }
 
     @Test

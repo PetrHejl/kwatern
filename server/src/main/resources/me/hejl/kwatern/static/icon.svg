@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<!-- A pedigree on its side, read as a K: the person as the stem, the parents as the branches.
+     The colours of style.css: --accent under white, and in the dark theme under --bg. -->
+<style>
+.tile { fill: #1d5c8c; }
+.line { fill: none; stroke: #ffffff; stroke-width: 3.4; }
+.dot { fill: #ffffff; }
+@media (prefers-color-scheme: dark) {
+  .tile { fill: #7fb3e0; }
+  .line { stroke: #16191d; }
+  .dot { fill: #16191d; }
+}
+</style>
+<rect class="tile" x="1" y="1" width="30" height="30" rx="7"/>
+<path class="line" d="M10 6.5V25.5M10 16L20 9.5M10 16L20 22.5"/>
+<circle class="dot" cx="21.5" cy="8.5" r="3.4"/>
+<circle class="dot" cx="21.5" cy="23.5" r="3.4"/>
+</svg>

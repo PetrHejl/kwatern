@@ -1,4 +1,4 @@
-# Kwatern
+<h1><img src="server/src/main/resources/me/hejl/kwatern/static/icon.svg" width="36" height="36" alt=""> Kwatern</h1>
 
 Read-only web viewer for [Gramps](https://gramps-project.org) genealogy exports. Point it at a
 Gramps XML export (`.gramps`) or package (`.gpkg`, with the media) and it serves the tree from memory as a
