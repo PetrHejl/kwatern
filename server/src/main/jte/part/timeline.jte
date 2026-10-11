@@ -9,12 +9,12 @@
     <%-- With a relation, the name and the relation are one flex item, so the separator is spaced like the
          others. The relation class has no style; it marks a relation not by birth, as in boxes. --%>
     <div class="t-year family">${e.year()}</div>
-    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @if(e.description().isEmpty())@template.part.person(ui = ui, link = e.relative())@else<span>@template.part.person(ui = ui, link = e.relative()) · <span class="relation">${e.description()}</span></span>@endif</div>
+    <div class="t-body family"><span class="t-dot" aria-hidden="true"></span> ${e.type()} @if(e.description().isEmpty())@template.part.person(ui = ui, link = e.relative())@else<span>@template.part.person(ui = ui, link = e.relative())${ui.separator()}<span class="relation">${e.description()}</span></span>@endif</div>
     @else
     <div class="t-year">${e.year()}</div>
     <div class="t-body">
         <div><span class="t-type">${e.type()}</span>@if(e.partner() != null) ${ui.t("timeline.with")} @template.part.person(ui = ui, link = e.partner())@endif@if(!e.role().isEmpty()) <span class="muted">(${e.role()})</span>@endif</div>
-        @if(!e.date().isEmpty() || !e.place().isEmpty())<div class="t-when">${e.date()}@if(!e.date().isEmpty() && !e.place().isEmpty()) · @endif@if(!e.placeUrl().isEmpty())<a href="${e.placeUrl()}">${e.place()}</a>@else${e.place()}@endif</div>@endif
+        @if(!e.date().isEmpty() || !e.place().isEmpty())<div class="t-when">${e.date()}@if(!e.date().isEmpty() && !e.place().isEmpty())${ui.separator()}@endif@if(!e.placeUrl().isEmpty())<a href="${e.placeUrl()}">${e.place()}</a>@else${e.place()}@endif</div>@endif
         @if(!e.description().isEmpty())<div class="t-desc">${e.description()}</div>@endif
         @if(!e.sources().isEmpty())
         <details class="sources">

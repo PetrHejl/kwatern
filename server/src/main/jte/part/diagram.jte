@@ -10,7 +10,7 @@
         @template.part.parents(ui = ui, parents = p)
         @else
         <div class="d-parents-group">
-            <div class="d-parents-label">${p.label()} · <a href="${p.url()}">${ui.t("family.page")}</a></div>
+            <div class="d-parents-label">${p.label()}${ui.separator()}<a href="${p.url()}">${ui.t("family.page")}</a></div>
             @template.part.parents(ui = ui, parents = p)
         </div>
         @endif
@@ -24,7 +24,7 @@
         </div>
         @for(var f : diagram.families())
         <div class="d-family">
-            <div class="d-label">${f.label()} · <a href="${f.url()}">${ui.t("family.page")}</a></div>
+            <div class="d-label">${f.label()}${ui.separator()}<a href="${f.url()}">${ui.t("family.page")}</a></div>
             @template.part.box(ui = ui, link = f.partner(), role = f.partnerRole(), relation = "")
             @if(f.childCount() > 0)
             <div class="d-children-label">${ui.t("children.count", f.childCount())}</div>

@@ -238,7 +238,7 @@ final class ChartViews extends ViewPart {
                     label,
                     ui.places().title(place, null),
                     Urls.place(place),
-                    String.join(" · ", entry.getValue()),
+                    String.join(ui.separator(), entry.getValue()),
                     at.filter(l -> l.place() != place)
                             .map(l -> ui.places().name(l.place(), null))
                             .orElse(""),

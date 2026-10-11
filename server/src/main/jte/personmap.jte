@@ -2,7 +2,7 @@
 @import me.hejl.kwatern.web.Ui
 @param Ui ui
 @param PersonMapPage page
-@template.layout(ui = ui, title = page.hero().title() + " · " + ui.t("tab.map"), map = true, content = @`
+@template.layout(ui = ui, title = page.hero().title() + ui.separator() + ui.t("tab.map"), map = true, content = @`
 @template.part.personhero(ui = ui, hero = page.hero())
 <div class="columns">
     <main>
@@ -20,7 +20,7 @@
                 <li>
                     <span class="badge-number${s.mapped() ? "" : " unmapped"}" aria-hidden="true">${s.number()}</span>
                     <span class="stop-text"><a href="${s.url()}">${s.name()}</a>
-                    <span class="row-sub">${s.events()}@if(!s.mapped()) · ${ui.t("map.no_coordinates")}@elseif(!s.shownAt().isEmpty()) · ${ui.t("map.shown_at", s.shownAt())}@endif</span></span>
+                    <span class="row-sub">${s.events()}@if(!s.mapped())${ui.separator()}${ui.t("map.no_coordinates")}@elseif(!s.shownAt().isEmpty())${ui.separator()}${ui.t("map.shown_at", s.shownAt())}@endif</span></span>
                 </li>
             @endfor
             </ol>

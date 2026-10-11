@@ -13,7 +13,7 @@
     @if(!node.families().isEmpty())
     <ul>
     @for(var f : node.families())
-        <li class="d-marriage"><span class="d-symbol" aria-hidden="true">⚭</span> @if(!f.label().isEmpty())${f.label()} @endif @if(f.partner() != null)<a href="${f.partner().url()}" class="${f.partner().living() ? "living" : ""}">${f.partner().name()}</a> @if(!f.partner().lifespan().isEmpty())<span class="row-sub">${f.partner().lifespan()}</span> @endif@endif · <a href="${f.familyUrl()}">${ui.t("family.page")}</a>
+        <li class="d-marriage"><span class="d-symbol" aria-hidden="true">⚭</span> @if(!f.label().isEmpty())${f.label()} @endif @if(f.partner() != null)<a href="${f.partner().url()}" class="${f.partner().living() ? "living" : ""}">${f.partner().name()}</a> @if(!f.partner().lifespan().isEmpty())<span class="row-sub">${f.partner().lifespan()}</span> @endif@endif${ui.separator()}<a href="${f.familyUrl()}">${ui.t("family.page")}</a>
             @if(!f.children().isEmpty())
             <ul>
             @for(var c : f.children())

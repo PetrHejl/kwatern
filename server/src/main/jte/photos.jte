@@ -21,7 +21,7 @@
     @endif
     @for(var g : page.groups())
     <div id="${g.id()}">
-        @template.part.mediatiles(ui = ui, tiles = g.tiles(), title = page.groups().size() > 1 ? g.label() + " · " + g.tiles().size() : "")
+        @template.part.mediatiles(ui = ui, tiles = g.tiles(), title = page.groups().size() > 1 ? g.label() + ui.separator() + g.tiles().size() : "")
     </div>
     @endfor
 </div>

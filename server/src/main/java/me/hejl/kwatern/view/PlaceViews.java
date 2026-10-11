@@ -155,7 +155,7 @@ final class PlaceViews extends ViewPart {
                 summary.add(ui.t(key + "_between", events.size(), places, years.getFirst(), years.getLast()));
             }
         }
-        return String.join(" · ", summary);
+        return String.join(ui.separator(), summary);
     }
 
     private PlaceEvent placeEvent(Event event, boolean showPlace) {

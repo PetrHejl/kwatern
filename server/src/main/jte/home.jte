@@ -23,7 +23,7 @@
                 <div><dt>${ui.t("stats.sources")}</dt><dd>${page.sources()}</dd></div>
                 <div><dt>${ui.t("stats.media")}</dt><dd>${page.media()}</dd></div>
             </dl>
-            <p><a href="/surnames">${ui.t("home.surnames", String.valueOf(page.surnames()))}</a> · <a href="/places">${ui.t("home.places")}</a> · <a href="/sources">${ui.t("home.sources")}</a></p>
+            <p><a href="/surnames">${ui.t("home.surnames", String.valueOf(page.surnames()))}</a>${ui.separator()}<a href="/places">${ui.t("home.places")}</a>${ui.separator()}<a href="/sources">${ui.t("home.sources")}</a></p>
         </section>
     </main>
     <aside>
