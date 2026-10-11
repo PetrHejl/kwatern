@@ -230,7 +230,10 @@ direction with these building blocks:
   an arrow (`a.external`). Only http and https addresses and plain email addresses are linked (`WebLinks`):
   an export may come from someone else, so `javascript:`, `file:` and Gramps' `relative://` are left out of the
   card. Addresses are checked by a pattern rather than `java.net.URI`, which rejects hosts in other scripts and
-  characters such as `|` or `[ ]` that browsers open.
+  characters such as `|` or `[ ]` that browsers open. A host with a part that mixes scripts, such as `аpple.com`
+  with a Cyrillic а, is shown in punycode (`xn--pple-43d.com`), allowing the mixes of ICU's highly restrictive
+  level (Latin with Han, Hiragana, Katakana, Bopomofo or Hangul). Hosts entirely in one script that look like
+  another are left to the browser, which shows them in punycode in its address bar.
   - Notes show Gramps' link style and bold, italic, underline, strikethrough, superscript and subscript; font,
     size, colour and highlight are left out, as the site keeps its own type and colours in both themes. A link
     to an object goes to its page, or is plain text when the view does not publish it; links to living people

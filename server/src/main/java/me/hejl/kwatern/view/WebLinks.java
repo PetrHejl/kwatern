@@ -1,8 +1,12 @@
 package me.hejl.kwatern.view;
 
+import java.lang.Character.UnicodeScript;
+import java.net.IDN;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import me.hejl.kwatern.web.Site;
@@ -17,18 +21,20 @@ final class WebLinks {
     /** Shortened addresses keep this many characters, enough for the site and the start of the path. */
     static final int SHORT = 32;
 
-    // Without UNICODE_CHARACTER_CLASS, \s, \S and \b are ASCII-only, and a no-break space would not end an address.
+    // Without UNICODE_CHARACTER_CLASS, \s and \S are ASCII-only, and a no-break space would not end an address.
     private static final int FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS;
     // An address typed in text: with a scheme or starting with www., up to white space or a character that cannot
     // be part of one. Gramps' note editor also takes www. without a scheme (gui/widgets/styledtexteditor.py).
-    // Email addresses in text are not linked: they often belong to living researchers.
-    private static final Pattern TYPED = Pattern.compile("\\b(?:https?://|www\\.)[^\\s<>\"\\p{Cntrl}]+", FLAGS);
+    // Email addresses in text are not linked: they often belong to living researchers. Not \b, which with Unicode
+    // classes finds no boundary after Chinese or Japanese text, often written without a space before an address.
+    // Format characters such as a zero-width space, common in text pasted from web pages, end an address too.
+    private static final Pattern TYPED = Pattern.compile("(?<![a-z0-9_])(?:https?://|www\\.)[^\\s<>\"\\p{C}]+", FLAGS);
     // Checked by hand rather than with java.net.URI, which rejects what browsers open: hosts in other scripts
     // (příklad.cz), and |, [ ], { }, ^ or a stray % in the path, all common on archive viewers. No user name
     // before the host, so that the site shown is the one the link opens.
     private static final Pattern WEB = Pattern.compile(
             "https?://(?<host>[\\p{L}\\p{N}\\p{M}-]+(?:\\.[\\p{L}\\p{N}\\p{M}-]+)*|\\[[0-9a-f:.]+])(?::[0-9]{1,5})?"
-                    + "(?:[/?#][^\\s\\p{Cntrl}]*)?",
+                    + "(?:[/?#][^\\s\\p{C}]*)?",
             FLAGS);
     private static final Pattern WWW = Pattern.compile("www\\.\\S+", FLAGS);
     // Characters that end a sentence rather than an address, e.g. "see www.example.org."; quotes are found by
@@ -36,6 +42,12 @@ final class WebLinks {
     private static final String TRAILING = ".,;:!?'\"*…。、，；：！？";
     // Closing brackets kept at the end of an address when it opens them, as in Great_Falls_(Montana).
     private static final String BRACKETS = "()[]{}（）［］｛｝";
+    // Scripts that may share a part of a host, as in ICU's highly restrictive level (UTS #39 5.2): Japanese,
+    // Chinese and Korean are written with several, and with Latin.
+    private static final List<Set<UnicodeScript>> SCRIPT_MIXES = List.of(
+            EnumSet.of(UnicodeScript.LATIN, UnicodeScript.HAN, UnicodeScript.HIRAGANA, UnicodeScript.KATAKANA),
+            EnumSet.of(UnicodeScript.LATIN, UnicodeScript.HAN, UnicodeScript.BOPOMOFO),
+            EnumSet.of(UnicodeScript.LATIN, UnicodeScript.HAN, UnicodeScript.HANGUL));
 
     private WebLinks() {}
 
@@ -67,7 +79,28 @@ final class WebLinks {
         if (WWW.matcher(text).matches()) {
             text = "https://" + text;
         }
-        return WEB.matcher(text).matches() ? text : null;
+        Matcher matcher = WEB.matcher(text);
+        return matcher.matches() && shownHost(matcher.group("host")) != null ? text : null;
+    }
+
+    /**
+     * A host as the page shows it: in punycode when a part of it mixes scripts, as "аpple.com" with a Cyrillic а
+     * does to pass for another site, or {@code null} when that fails. An export may come from someone else.
+     */
+    private static String shownHost(String host) {
+        for (String label : host.split("\\.")) {
+            Set<UnicodeScript> scripts = EnumSet.noneOf(UnicodeScript.class);
+            label.codePoints().mapToObj(UnicodeScript::of).forEach(scripts::add);
+            scripts.removeAll(EnumSet.of(UnicodeScript.COMMON, UnicodeScript.INHERITED));
+            if (scripts.size() > 1 && SCRIPT_MIXES.stream().noneMatch(mix -> mix.containsAll(scripts))) {
+                try {
+                    return IDN.toASCII(host);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+            }
+        }
+        return host;
     }
 
     /** The addresses typed in a text that can be linked to. */
@@ -117,12 +150,27 @@ final class WebLinks {
         return depth < 0;
     }
 
+    /** A web address as typed, with or without a scheme, and its host as the page shows it. */
+    static String readable(String address) {
+        String scheme = WWW.matcher(address).matches() ? "https://" : "";
+        Matcher matcher = WEB.matcher(scheme + address);
+        if (!matcher.matches()) {
+            return address;
+        }
+        String host = matcher.group("host");
+        String shown = shownHost(host);
+        int start = matcher.start("host") - scheme.length();
+        return shown == null || shown.equals(host)
+                ? address
+                : address.substring(0, start) + shown + address.substring(start + host.length());
+    }
+
     /**
      * An address as it is read, without the scheme, "www." and a final slash, and cut after {@link #SHORT}
      * characters: "familysearch.org/ark:/61903/1:1:…".
      */
     static String shorten(String url) {
-        String text = url.replaceFirst("(?i)^(https?://|mailto:)", "").replaceFirst("(?i)^www\\.", "");
+        String text = readable(url).replaceFirst("(?i)^(https?://|mailto:)", "").replaceFirst("(?i)^www\\.", "");
         if (text.endsWith("/")) {
             text = text.substring(0, text.length() - 1);
         }
@@ -141,7 +189,7 @@ final class WebLinks {
         if (!matcher.matches()) {
             return shorten(url);
         }
-        String host = matcher.group("host").toLowerCase(Locale.ROOT);
+        String host = shownHost(matcher.group("host")).toLowerCase(Locale.ROOT);
         return host.startsWith("www.") ? host.substring(4) : host;
     }
 }

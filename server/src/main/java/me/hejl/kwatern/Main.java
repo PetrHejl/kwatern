@@ -5,6 +5,7 @@ import java.io.Console;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.IDN;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -337,6 +338,7 @@ public final class Main implements Callable<Integer> {
             Site site = version.sites().widest();
             System.out.print(icuSelfTest());
             System.out.print(imageSelfTest(site.data().database(), site.images()));
+            System.out.print(linksSelfTest());
             if (login != null) {
                 System.out.print(loginSelfTest());
             }
@@ -549,6 +551,17 @@ public final class Main implements Callable<Integer> {
                 ? mapAttribution
                 : mapTiles.equals(Site.MapOptions.OSM_TILES) ? Site.MapOptions.OSM_ATTRIBUTION : "";
         return new Site.MapOptions(true, mapTiles, attribution);
+    }
+
+    /** Converts a host to punycode, as the Links card shows lookalike hosts; IDN reads data from the JDK. */
+    private static String linksSelfTest() {
+        boolean works;
+        try {
+            works = IDN.toASCII("\u0430pple.com").equals("xn--pple-43d.com");
+        } catch (RuntimeException e) {
+            works = false;
+        }
+        return "links: punycode %s%n".formatted(works ? "works" : "FAILS");
     }
 
     /** Checks a password and a session, to show that the JDK's cryptography works in this build. */

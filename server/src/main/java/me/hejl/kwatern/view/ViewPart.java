@@ -490,7 +490,11 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
             if (styledEnd <= found.start()) {
                 String typed = text.substring(found.start(), found.end());
                 links.add(new LinkSpan(
-                        found.start(), found.end(), found.url(), true, preformatted ? typed : WebLinks.shorten(typed)));
+                        found.start(),
+                        found.end(),
+                        found.url(),
+                        true,
+                        preformatted ? WebLinks.readable(typed) : WebLinks.shorten(typed)));
             }
         }
         links.sort(Comparator.comparingInt(LinkSpan::start));

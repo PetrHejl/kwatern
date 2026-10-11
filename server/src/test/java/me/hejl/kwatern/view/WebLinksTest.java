@@ -38,6 +38,18 @@ class WebLinksTest {
     }
 
     @Test
+    void showsHostsThatMixScriptsInPunycode() {
+        // "аpple.com" with a Cyrillic а
+        assertEquals("https://\u0430pple.com/", WebLinks.url("https://\u0430pple.com/"));
+        assertEquals("xn--pple-43d.com", WebLinks.site("https://\u0430pple.com/"));
+        assertEquals("xn--pple-43d.com/a", WebLinks.shorten("https://\u0430pple.com/a"));
+        assertEquals("www.xn--pple-43d.com/a", WebLinks.readable("www.\u0430pple.com/a"));
+        assertEquals("příklad.cz", WebLinks.site("https://příklad.cz"));
+        assertEquals("例え.jp", WebLinks.site("https://例え.jp"));
+        assertEquals("сайт.рф", WebLinks.site("https://сайт.рф"));
+    }
+
+    @Test
     void linksOnlyWebAddressesInText() {
         assertEquals("https://example.org", WebLinks.web("https://example.org"));
         assertNull(WebLinks.web("archive@example.org"));
@@ -62,6 +74,12 @@ class WebLinksTest {
         assertEquals(found("«www.a.cz»", "www.a.cz", "https://www.a.cz"), WebLinks.find("«www.a.cz»"));
         assertEquals(found("‘www.a.cz’", "www.a.cz", "https://www.a.cz"), WebLinks.find("‘www.a.cz’"));
         assertEquals(found("（www.a.cz）", "www.a.cz", "https://www.a.cz"), WebLinks.find("（www.a.cz）"));
+        assertEquals(
+                found("見https://example.org/", "https://example.org/", "https://example.org/"),
+                WebLinks.find("見https://example.org/"));
+        assertEquals(
+                found("https://example.org/a\u200Bnext", "https://example.org/a", "https://example.org/a"),
+                WebLinks.find("https://example.org/a\u200Bnext"));
         assertEquals(
                 found("https://example.org/a\u00A0(1890)", "https://example.org/a", "https://example.org/a"),
                 WebLinks.find("https://example.org/a\u00A0(1890)"));
