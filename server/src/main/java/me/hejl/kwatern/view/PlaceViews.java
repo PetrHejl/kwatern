@@ -127,6 +127,7 @@ final class PlaceViews extends ViewPart {
                 happened,
                 events.size() - happened.size(),
                 overview ? surnamesOf(events) : List.of(),
+                webLinks(place.urls()),
                 notes(place.notes()),
                 sources.uses(),
                 tiles(place.media()),

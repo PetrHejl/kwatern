@@ -19,6 +19,8 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
 import me.hejl.gramps.model.GrampsDatabase;
@@ -771,6 +773,112 @@ class WebServerTest {
             assertFalse(after.contains("<h1 class=\"living\">"));
         } finally {
             other.stop();
+        }
+    }
+
+    @Test
+    void linksWebAddressesAndObjectsInText() throws Exception {
+        // A note with Gramps links to a person, a living person, a missing person, a citation, a web page and a
+        // script, typed addresses, and bold text after an emoji, which Gramps counts as one character.
+        String note = "😀 Son Jesse, grandson Tom, cousin Ann, see Census. Read at Example, not click."
+                + " (see www.example.org/a). Entry: https://www.familysearch.org/ark:/61903/1:1:M8QX-ABCD?lang=en";
+        String styles = Stream.of(
+                        new String[] {"link", "gramps://Person/handle/i1", "Jesse"},
+                        new String[] {"link", "gramps://Person/handle/i2", "Tom"},
+                        new String[] {"link", "gramps://Person/handle/gone", "Ann"},
+                        new String[] {"link", "gramps://Citation/handle/c0", "Census"},
+                        new String[] {"link", "https://example.org/read", "Example"},
+                        new String[] {"link", "javascript:alert(1)", "click"},
+                        new String[] {"bold", null, "Son"})
+                .map(s -> "<style name=\"%s\"%s><range start=\"%d\" end=\"%d\"/></style>"
+                        .formatted(
+                                s[0],
+                                s[1] == null ? "" : " value=\"" + s[1] + "\"",
+                                note.codePointCount(0, note.indexOf(s[2])),
+                                note.codePointCount(0, note.indexOf(s[2]) + s[2].length())))
+                .collect(Collectors.joining());
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <database xmlns="http://gramps-project.org/xml/1.7.2/">
+                  <events>
+                    <event handle="_b0" change="1" id="E0"><type>Birth</type><dateval val="1850"/></event>
+                    <event handle="_d0" change="1" id="E1"><type>Death</type><dateval val="1910"/></event>
+                    <event handle="_b1" change="1" id="E2"><type>Birth</type><dateval val="1880"/></event>
+                    <event handle="_d1" change="1" id="E3"><type>Death</type><dateval val="1950"/></event>
+                    <event handle="_b2" change="1" id="E4"><type>Birth</type><dateval val="2000"/></event>
+                  </events>
+                  <people>
+                    <person handle="_i0" change="1" id="I0"><gender>M</gender>
+                      <eventref hlink="_b0" role="Primary"/><eventref hlink="_d0" role="Primary"/>
+                      <attribute type="Find a Grave" value="https://www.findagrave.com/memorial/1"/>
+                      <url href="https://www.familysearch.org/tree/person/X" type="Web Home"
+                        description="FamilySearch tree"/>
+                      <url href="www.example.org/garner" type="Web Home"/>
+                      <url href="javascript:alert(1)" type="Web Home" description="Script"/>
+                      <noteref hlink="_n0"/><citationref hlink="_c0"/></person>
+                    <person handle="_i1" change="1" id="I1"><gender>M</gender>
+                      <eventref hlink="_b1" role="Primary"/><eventref hlink="_d1" role="Primary"/></person>
+                    <person handle="_i2" change="1" id="I2"><gender>M</gender>
+                      <eventref hlink="_b2" role="Primary"/></person>
+                  </people>
+                  <citations>
+                    <citation handle="_c0" change="1" id="C0"><page>Sheet 4, http://archive.example.org/s4</page>
+                      <confidence>2</confidence><sourceref hlink="_s0"/></citation>
+                  </citations>
+                  <sources>
+                    <source handle="_s0" change="1" id="S0"><stitle>Census</stitle></source>
+                  </sources>
+                  <notes>
+                    <note handle="_n0" change="1" id="N0" type="Person Note"><text>%s</text>%s</note>
+                  </notes>
+                </database>
+                """.formatted(note, styles);
+        GrampsDatabase db = GrampsXml.read(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)))
+                .database();
+        var tree = new WebServer(new Site(
+                PrivacyFilter.apply(db, new ProbablyAlive(db, AliveRules.DEFAULTS, 2026)), Site.Options.DEFAULT));
+        int port = tree.start("127.0.0.1", 0);
+        try {
+            String page = CLIENT.send(
+                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/person/I0"))
+                                    .build(),
+                            HttpResponse.BodyHandlers.ofString())
+                    .body();
+            String external = "<a class=\"external\" href=\"%s\" rel=\"noreferrer\">%s</a>";
+            assertTrue(
+                    page.contains("<div class=\"note\">😀 <span class=\"st-bold\">Son</span>"
+                            + " <a href=\"/person/I1\">Jesse</a>, grandson Tom, cousin Ann,"
+                            + " see <a href=\"/source/S0\">Census</a>. Read at "
+                            + external.formatted("https://example.org/read", "Example")
+                            + ", not click. (see "
+                            + external.formatted("https://www.example.org/a", "example.org/a")
+                            + "). Entry: "
+                            + external.formatted(
+                                    "https://www.familysearch.org/ark:/61903/1:1:M8QX-ABCD?lang=en",
+                                    "familysearch.org/ark:/61903/1:1:…")
+                            + "</div>"),
+                    "links to published objects and web pages, the living and scripts as text");
+            assertTrue(
+                    page.contains("<dd>"
+                            + external.formatted("https://www.findagrave.com/memorial/1", "findagrave.com/memorial/1")
+                            + "</dd>"),
+                    "an address as an attribute");
+            assertTrue(
+                    page.contains(", Sheet 4, "
+                            + external.formatted("http://archive.example.org/s4", "archive.example.org/s4") + " <span"),
+                    "and as a citation page");
+            assertTrue(
+                    page.contains("<span class=\"web-link-label\">FamilySearch tree</span>"
+                            + "<span class=\"muted\">familysearch.org</span>"),
+                    "web links with a description");
+            assertTrue(
+                    page.contains(
+                            "href=\"https://www.example.org/garner\" rel=\"noreferrer\"><span"
+                                    + " class=\"web-link-text\"><span class=\"web-link-label\">example.org/garner</span></span>"),
+                    "and without one");
+            assertFalse(page.contains("javascript:"), "never a script");
+        } finally {
+            tree.stop();
         }
     }
 }

@@ -28,7 +28,7 @@
                     </div>
                     @endif
                     <div>
-                    <div class="t-when">${ui.join(c.page(), c.date(), ui.t("source.confidence", c.confidence()))}</div>
+                    <div class="t-when">@if(!c.page().isEmpty())@template.part.text(text = c.page()) · @endif${ui.join(c.date(), ui.t("source.confidence", c.confidence()))}</div>
                     <ul>
                     @for(var w : c.cited())
                         <li>@if(!w.url().isEmpty())<a href="${w.url()}">${w.label()}</a>@else${w.label()}@endif</li>
@@ -49,7 +49,7 @@
             <h2>${ui.t("source.details")}</h2>
             <dl class="rows">
             @for(var d : page.details())
-                <dt>${d.label()}</dt><dd>${d.value()}</dd>
+                <dt>${d.label()}</dt><dd>@template.part.text(text = d.value())</dd>
             @endfor
             </dl>
         </section>
@@ -59,7 +59,7 @@
             <h2>${ui.t("source.repositories")}</h2>
             <dl class="rows">
             @for(var r : page.repositories())
-                <dt>${r.label()}</dt><dd>${r.value()}</dd>
+                <dt>${r.name()}</dt><dd>${r.details()}@if(!r.links().isEmpty())<ul class="repository-links">@for(var l : r.links())<li><a class="external" href="${l.url()}" rel="noreferrer">${l.label()}</a></li>@endfor</ul>@endif</dd>
             @endfor
             </dl>
         </section>

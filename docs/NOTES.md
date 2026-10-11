@@ -223,6 +223,21 @@ direction with these building blocks:
 - **Coordinates** are read in every notation Gramps accepts (decimal with dot or comma, degrees-minutes-
   seconds, hemisphere letters) and shown as "39.0483° N, 95.6780° W", translated.
 - **Places in the summary sentence** stay plain text; everywhere else places and sources are links.
+- **Web links** (2026-10-11, mockups "Web links and links in notes" on the design canvas): the Internet tab of
+  people and places is a "Links" card in the sidebar, each link with its description and site, or the shortened
+  address without one; a repository's links are under it on the source page. Links to other websites end in
+  an arrow (`a.external`). Only http and https addresses and plain email addresses are linked (`WebLinks`):
+  an export may come from someone else, so `javascript:`, `file:` and Gramps' `relative://` stay text.
+  - Notes show Gramps' link style and bold, italic, underline, strikethrough, superscript and subscript; font,
+    size, colour and highlight are left out, as the site keeps its own type and colours in both themes. A link
+    to an object goes to its page, or is plain text when the view does not publish it; links to living people
+    are plain text too, as their names are not published.
+  - Addresses typed in notes, attribute values, citation pages and source publication info are linked, without
+    the punctuation after them, and shortened to 32 characters, except in preformatted notes, whose columns
+    would move. Email addresses typed in text are not linked: they often belong to living researchers. Names,
+    titles and descriptions never link, since an address there is a mistake.
+  - Gramps counts style offsets in code points, as Python does, and writes handles in links without the
+    leading `_` of the XML export.
 - **No JavaScript:** opening sources and "Show more" use HTML `<details>`.
 - **Layout:** header, a hero band, then a main column and a 420 px sidebar; below about 900 px the
   sidebar moves under the main column. Colours are CSS variables with a dark variant.
@@ -605,7 +620,6 @@ Third-party material and what it requires:
   Confirm this matches reality.
 - **Rarer calendars:** Hebrew month numbering in non-leap years follows Gramps (Adar I and Adar II both
   mean Adar); only tested on a few dates.
-- **Notes:** styles (bold, links) are not rendered yet.
 - **Siblings not by birth:** siblings come from every parent family but carry no relation, so on a foster
   child's page the foster parents' own child is "Birth of brother", and the siblings card does not tell
   foster or half-siblings apart. Gramps records no sibling relation; it would follow from the families and

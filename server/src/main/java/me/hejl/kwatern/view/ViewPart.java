@@ -1,6 +1,7 @@
 package me.hejl.kwatern.view;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeSet;
 import me.hejl.gramps.date.DateMath;
 import me.hejl.gramps.model.Attribute;
 import me.hejl.gramps.model.ChildRef;
@@ -25,7 +27,9 @@ import me.hejl.gramps.model.Person;
 import me.hejl.gramps.model.Place;
 import me.hejl.gramps.model.PrimaryObject;
 import me.hejl.gramps.model.Source;
+import me.hejl.gramps.model.StyledText;
 import me.hejl.gramps.model.Surname;
+import me.hejl.gramps.model.Url;
 import me.hejl.gramps.place.Coordinates;
 import me.hejl.gramps.place.PlaceFormatter;
 import me.hejl.gramps.privacy.PublicDatabase;
@@ -35,8 +39,12 @@ import me.hejl.kwatern.view.Pages.Cited;
 import me.hejl.kwatern.view.Pages.MediaTile;
 import me.hejl.kwatern.view.Pages.NoteView;
 import me.hejl.kwatern.view.Pages.PersonLink;
+import me.hejl.kwatern.view.Pages.Piece;
 import me.hejl.kwatern.view.Pages.Row;
+import me.hejl.kwatern.view.Pages.Run;
 import me.hejl.kwatern.view.Pages.SourceUse;
+import me.hejl.kwatern.view.Pages.Text;
+import me.hejl.kwatern.view.Pages.WebLink;
 import me.hejl.kwatern.web.MediaImages;
 import me.hejl.kwatern.web.Ui;
 import me.hejl.kwatern.web.Urls;
@@ -390,7 +398,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
 
     List<Row> attributes(List<Attribute> attributes) {
         return attributes.stream()
-                .map(a -> new Row(ui.type("attribute", a.type()), a.value() == null ? "" : a.value()))
+                .map(a -> new Row(ui.type("attribute", a.type()), text(a.value())))
                 .toList();
     }
 
@@ -403,7 +411,184 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
     }
 
     NoteView note(Note note) {
-        return new NoteView(ui.type("note", note.type()), note.text().text(), note.preformatted());
+        return new NoteView(ui.type("note", note.type()), text(note.text(), note.preformatted()), note.preformatted());
+    }
+
+    /** Plain text from the export, with the web addresses typed in it as links. */
+    Text text(String plain) {
+        return plain == null ? Text.plain("") : text(new StyledText(plain, List.of()), false);
+    }
+
+    // Styles shown as in Gramps. Font, size, colour and highlight are left out: the site keeps its own type and
+    // colours, which also have to work in the dark theme.
+    private static final Map<String, String> STYLES = Map.of(
+            "bold", "st-bold",
+            "italic", "st-italic",
+            "underline", "st-underline",
+            "strikethrough", "st-strikethrough",
+            "superscript", "st-superscript",
+            "subscript", "st-subscript");
+
+    /** A part of a text that is a link, at UTF-16 offsets; {@code label} replaces its text when not null. */
+    private record LinkSpan(int start, int end, String url, boolean external, String label) {}
+
+    private record Mark(int start, int end, String style) {}
+
+    /**
+     * Styled text as runs of links and plain text. Links are those of the link style that lead to a web address
+     * or a published object, and addresses typed outside them. A preformatted text keeps typed addresses in full,
+     * so that columns stay aligned; other text shows them shortened.
+     */
+    Text text(StyledText styled, boolean preformatted) {
+        String text = styled.text();
+        List<LinkSpan> links = new ArrayList<>();
+        List<Mark> marks = new ArrayList<>();
+        List<Mark> linkStyled = new ArrayList<>();
+        for (StyledText.Style style : styled.styles()) {
+            for (StyledText.Range range : style.ranges()) {
+                int start = offset(text, range.start());
+                int end = offset(text, range.end());
+                if (start >= end) {
+                    continue;
+                }
+                if ("link".equals(style.name())) {
+                    linkStyled.add(new Mark(start, end, ""));
+                    String internal = target(style.value());
+                    String external = internal == null ? WebLinks.url(style.value()) : null;
+                    if (internal != null && !internal.isEmpty()) {
+                        links.add(new LinkSpan(start, end, internal, false, null));
+                    } else if (external != null) {
+                        links.add(new LinkSpan(start, end, external, true, null));
+                    }
+                } else if (STYLES.containsKey(style.name())) {
+                    marks.add(new Mark(start, end, STYLES.get(style.name())));
+                }
+            }
+        }
+        for (WebLinks.Found found : WebLinks.find(text)) {
+            if (linkStyled.stream().noneMatch(m -> m.start() < found.end() && found.start() < m.end())) {
+                String typed = text.substring(found.start(), found.end());
+                links.add(new LinkSpan(
+                        found.start(), found.end(), found.url(), true, preformatted ? typed : WebLinks.shorten(typed)));
+            }
+        }
+        links.sort(Comparator.comparingInt(LinkSpan::start));
+        // Links in Gramps do not overlap; if an export has some that do, the first wins.
+        List<LinkSpan> kept = new ArrayList<>();
+        for (LinkSpan link : links) {
+            if (kept.isEmpty() || kept.getLast().end() <= link.start()) {
+                kept.add(link);
+            }
+        }
+
+        TreeSet<Integer> cuts = new TreeSet<>(List.of(0, text.length()));
+        kept.forEach(l -> {
+            cuts.add(l.start());
+            cuts.add(l.end());
+        });
+        marks.forEach(m -> {
+            cuts.add(m.start());
+            cuts.add(m.end());
+        });
+        List<Run> runs = new ArrayList<>();
+        List<Piece> pieces = new ArrayList<>();
+        LinkSpan current = null;
+        Integer start = cuts.first();
+        for (Integer end = cuts.higher(start); end != null; start = end, end = cuts.higher(end)) {
+            int from = start;
+            LinkSpan link = kept.stream()
+                    .filter(l -> l.start() <= from && from < l.end())
+                    .findFirst()
+                    .orElse(null);
+            if (link != current) {
+                if (!pieces.isEmpty()) {
+                    runs.add(run(current, pieces));
+                }
+                pieces = new ArrayList<>();
+                current = link;
+            }
+            String style = String.join(
+                    " ",
+                    marks.stream()
+                            .filter(m -> m.start() <= from && from < m.end())
+                            .map(Mark::style)
+                            .distinct()
+                            .sorted()
+                            .toList());
+            if (link != null && link.label() != null) {
+                // A shortened address is one piece in the style of its start.
+                if (pieces.isEmpty()) {
+                    pieces.add(new Piece(link.label(), style));
+                }
+            } else {
+                pieces.add(new Piece(text.substring(from, end), style));
+            }
+        }
+        if (!pieces.isEmpty()) {
+            runs.add(run(current, pieces));
+        }
+        return new Text(List.copyOf(runs));
+    }
+
+    private static Run run(LinkSpan link, List<Piece> pieces) {
+        return new Run(link == null ? "" : link.url(), link != null && link.external(), List.copyOf(pieces));
+    }
+
+    /**
+     * The UTF-16 offset of a Gramps offset, which counts code points as Python strings do, clamped to the text: an
+     * export may come from someone else.
+     */
+    private static int offset(String text, int codePoints) {
+        int count = text.codePointCount(0, text.length());
+        return text.offsetByCodePoints(0, Math.clamp(codePoints, 0, count));
+    }
+
+    /**
+     * The page of an object a note links to, as Gramps writes the link ({@code gramps://Person/handle/...}): empty
+     * when the object is not published or has no page, and {@code null} when the link is not to an object.
+     * Living people are not linked, as their names are not published.
+     */
+    // Gramps: gui/editors/editlink.py; the XML export writes handles with a leading "_" (plugins/export/exportxml.py)
+    String target(String link) {
+        if (link == null || !link.startsWith("gramps://")) {
+            return null;
+        }
+        String[] parts = link.substring("gramps://".length()).split("/");
+        if (parts.length != 3 || !parts[1].equals("handle")) {
+            return "";
+        }
+        String handle = "_" + parts[2];
+        return switch (parts[0]) {
+            case "Person" ->
+                db.people()
+                        .get(handle)
+                        .filter(p -> !data.isLiving(p.handle()))
+                        .map(Urls::person)
+                        .orElse("");
+            case "Family" -> db.families().get(handle).map(Urls::family).orElse("");
+            case "Place" -> db.places().get(handle).map(Urls::place).orElse("");
+            case "Source" -> db.sources().get(handle).map(Urls::source).orElse("");
+            case "Citation" -> db.citations().get(handle).map(this::sourceUrl).orElse("");
+            case "Media" -> db.media().get(handle).map(Urls::media).orElse("");
+            default -> "";
+        };
+    }
+
+    /** Links to other websites from the Internet tab of Gramps, leaving out addresses that are not web or email. */
+    List<WebLink> webLinks(List<Url> urls) {
+        List<WebLink> links = new ArrayList<>();
+        for (Url url : urls) {
+            String href = WebLinks.url(url.href());
+            if (href == null) {
+                continue;
+            }
+            boolean described = url.description() != null && !url.description().isBlank();
+            links.add(
+                    described
+                            ? new WebLink(href, url.description().strip(), WebLinks.site(href))
+                            : new WebLink(href, WebLinks.shorten(href), ""));
+        }
+        return links;
     }
 
     List<CitationView> citations(List<String> handles) {
@@ -414,7 +599,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
                     .ifPresent(c -> result.add(new CitationView(
                             sourceTitle(c),
                             sourceUrl(c),
-                            c.page() == null ? "" : c.page(),
+                            text(c.page()),
                             ui.date(c.date()),
                             ui.t("confidence." + Math.clamp(c.confidence(), 0, 4)))));
         }
@@ -446,8 +631,8 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
             List<SourceUse> uses = new ArrayList<>();
             supports.forEach((handle, what) -> db.citations()
                     .get(handle)
-                    .ifPresent(c -> uses.add(new SourceUse(
-                            sourceTitle(c), sourceUrl(c), c.page() == null ? "" : c.page(), String.join(", ", what)))));
+                    .ifPresent(c -> uses.add(
+                            new SourceUse(sourceTitle(c), sourceUrl(c), text(c.page()), String.join(", ", what)))));
             return uses;
         }
     }

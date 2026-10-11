@@ -22,7 +22,7 @@
             @for(var c : e.sources())
             <dl class="citation">
                 <dt>${ui.t("source")}</dt><dd>@if(!c.sourceUrl().isEmpty())<a href="${c.sourceUrl()}">${c.source()}</a>@else${c.source()}@endif</dd>
-                @if(!c.page().isEmpty())<dt>${ui.t("page")}</dt><dd>${c.page()}</dd>@endif
+                @if(!c.page().isEmpty())<dt>${ui.t("page")}</dt><dd>@template.part.text(text = c.page())</dd>@endif
                 @if(!c.date().isEmpty())<dt>${ui.t("date")}</dt><dd>${c.date()}</dd>@endif
                 <dt>${ui.t("confidence")}</dt><dd>${c.confidence()}</dd>
             </dl>

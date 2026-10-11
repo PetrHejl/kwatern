@@ -30,13 +30,57 @@ public final class Pages {
             String genderLabel) {}
 
     /** A labelled value, such as an attribute or an alternate name. */
-    public record Row(String label, String value) {}
+    public record Row(String label, Text value) {
+
+        public Row(String label, String value) {
+            this(label, Text.plain(value));
+        }
+    }
+
+    /**
+     * Text with links and styles, such as a note, as runs that are links or plain text. Templates write it with
+     * {@code part/text.jte}, escaped.
+     */
+    public record Text(List<Run> runs) {
+
+        public static Text plain(String text) {
+            return new Text(
+                    text == null || text.isEmpty()
+                            ? List.of()
+                            : List.of(new Run("", false, List.of(new Piece(text, "")))));
+        }
+
+        public boolean isEmpty() {
+            return runs.isEmpty();
+        }
+    }
+
+    /**
+     * A part of a text: a link, or plain text when the URL is empty.
+     *
+     * @param external whether the link leads to another website
+     */
+    public record Run(String url, boolean external, List<Piece> pieces) {}
+
+    /** @param style CSS classes for the text styles, such as {@code "st-bold st-italic"}, or empty */
+    public record Piece(String text, String style) {}
+
+    /**
+     * A link to another website, from the Internet tab of Gramps.
+     *
+     * @param label the description, or the shortened address when there is none
+     * @param site  the site, such as "familysearch.org", or empty when the label is the address
+     */
+    public record WebLink(String url, String label, String site) {}
+
+    /** A repository of a source, e.g. an archive, with the call number and its links. */
+    public record RepositoryView(String name, String details, List<WebLink> links) {}
 
     /** A citation of a source, as shown when an event's sources are opened. */
-    public record CitationView(String source, String sourceUrl, String page, String date, String confidence) {}
+    public record CitationView(String source, String sourceUrl, Text page, String date, String confidence) {}
 
     /** A source cited on a page, with what it supports ("birth", "this person"). */
-    public record SourceUse(String source, String url, String page, String supports) {}
+    public record SourceUse(String source, String url, Text page, String supports) {}
 
     /**
      * One entry of a timeline.
@@ -58,7 +102,7 @@ public final class Pages {
             List<CitationView> sources,
             PersonLink relative) {}
 
-    public record NoteView(String type, String text, boolean preformatted) {}
+    public record NoteView(String type, Text text, boolean preformatted) {}
 
     /** A link to a place, with its type such as "City". */
     public record PlaceLink(String url, String name, String type) {}
@@ -89,6 +133,7 @@ public final class Pages {
             List<PlaceEvent> events,
             int moreEvents,
             List<SurnameEntry> surnames,
+            List<WebLink> links,
             List<NoteView> notes,
             List<SourceUse> sources,
             List<MediaTile> media,
@@ -98,13 +143,12 @@ public final class Pages {
     public record Cited(String label, String url) {}
 
     /** @param media scans or photos attached to the citation */
-    public record CitationEntry(
-            String page, String date, String confidence, List<Cited> cited, List<MediaTile> media) {}
+    public record CitationEntry(Text page, String date, String confidence, List<Cited> cited, List<MediaTile> media) {}
 
     public record SourcePage(
             String title,
             List<Row> details,
-            List<Row> repositories,
+            List<RepositoryView> repositories,
             List<NoteView> notes,
             List<CitationEntry> citations,
             List<MediaTile> media) {}
@@ -257,6 +301,7 @@ public final class Pages {
             List<PersonLink> siblings,
             List<Row> otherNames,
             List<Row> attributes,
+            List<WebLink> links,
             List<NoteView> notes,
             List<SourceUse> sources,
             List<MediaTile> media) {}
