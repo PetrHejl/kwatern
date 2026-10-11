@@ -30,7 +30,7 @@
     <h2>${ui.t("sources.all")}</h2>
     <ul class="source-list">
     @for(var s : sources)
-        <li>@if(!s.url().isEmpty())<a href="${s.url()}">${s.source()}</a>@else${s.source()}@endif@if(!s.page().isEmpty()), @template.part.text(text = s.page())@endif <span class="muted">· ${s.supports()}</span></li>
+        <li>@if(!s.url().isEmpty())<a href="${s.url()}">${s.source()}</a>@else${s.source()}@endif@if(!s.page().isEmpty()), @template.part.text(text = s.page())@endif<span class="muted">${ui.separator()}${s.supports()}</span></li>
     @endfor
     </ul>
 </section>

@@ -2,7 +2,7 @@
 @import me.hejl.kwatern.web.Ui
 @param Ui ui
 @param DescendantsPage page
-@template.layout(ui = ui, title = page.hero().title() + " · " + ui.t("tab.descendants"), content = @`
+@template.layout(ui = ui, title = page.hero().title() + ui.separator() + ui.t("tab.descendants"), content = @`
 @template.part.personhero(ui = ui, hero = page.hero())
 <div class="page">
     <section class="card chart-card">

@@ -13,7 +13,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${title} · ${ui.t("site.title")}</title>
+    <title>${title}${ui.separator()}${ui.t("site.title")}</title>
     <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
     @if(map)<link rel="stylesheet" href="/static/leaflet/leaflet.css">@endif
     <link rel="stylesheet" href="${Urls.stylesheet()}">

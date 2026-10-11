@@ -2,7 +2,7 @@
 @import me.hejl.kwatern.web.Ui
 @param Ui ui
 @param AncestorsPage page
-@template.layout(ui = ui, title = page.hero().title() + " · " + ui.t("tab.ancestors"), content = @`
+@template.layout(ui = ui, title = page.hero().title() + ui.separator() + ui.t("tab.ancestors"), content = @`
 @template.part.personhero(ui = ui, hero = page.hero())
 <div class="page">
     <section class="card chart-card${page.fan() ? " fan-view" : " tree-view"}">

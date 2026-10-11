@@ -867,7 +867,8 @@ class WebServerTest {
                     "an address as an attribute");
             assertTrue(
                     page.contains(", Sheet 4, "
-                            + external.formatted("http://archive.example.org/s4", "archive.example.org/s4") + " <span"),
+                            + external.formatted("http://archive.example.org/s4", "archive.example.org/s4")
+                            + "<span class=\"muted\"> · "),
                     "and as a citation page");
             assertTrue(
                     page.contains("<span class=\"web-link-label\">FamilySearch tree</span>"

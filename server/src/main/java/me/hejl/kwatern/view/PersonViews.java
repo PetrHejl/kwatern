@@ -479,7 +479,7 @@ final class PersonViews extends ViewPart {
             Optional<Integer> age = age(birth, death);
             parts.add(age.map(a -> ui.t("summary.aged", text, a)).orElse(text));
         }
-        return String.join(" · ", parts);
+        return String.join(ui.separator(), parts);
     }
 
     private static Optional<Integer> age(Event birth, Event death) {
@@ -512,7 +512,7 @@ final class PersonViews extends ViewPart {
         if (!others.isEmpty()) {
             parts.add(ui.t("person.also", String.join(", ", others)));
         }
-        return String.join(" · ", parts);
+        return String.join(ui.separator(), parts);
     }
 
     /** The person's own events and those of their families, in date order; undated ones last. */

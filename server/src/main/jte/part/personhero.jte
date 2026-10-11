@@ -17,7 +17,7 @@
             <h1>${hero.heading().before()} <b>${hero.heading().surname()}</b> ${hero.heading().after()}</h1>
             @if(!hero.summary().isEmpty())<p class="summary">${hero.summary()}</p>@endif
             @if(!hero.details().isEmpty() || !hero.surnameUrl().isEmpty())
-            <p class="details">${hero.details()}@if(!hero.details().isEmpty() && !hero.surnameUrl().isEmpty()) · @endif@if(!hero.surnameUrl().isEmpty())<a href="${hero.surnameUrl()}">${hero.surnameLink()}</a>@endif</p>
+            <p class="details">${hero.details()}@if(!hero.details().isEmpty() && !hero.surnameUrl().isEmpty())${ui.separator()}@endif@if(!hero.surnameUrl().isEmpty())<a href="${hero.surnameUrl()}">${hero.surnameLink()}</a>@endif</p>
             @endif
             @endif
         </div>
