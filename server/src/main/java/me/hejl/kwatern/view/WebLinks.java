@@ -1,7 +1,5 @@
 package me.hejl.kwatern.view;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -19,45 +17,57 @@ final class WebLinks {
     /** Shortened addresses keep this many characters, enough for the site and the start of the path. */
     static final int SHORT = 32;
 
+    // Without UNICODE_CHARACTER_CLASS, \s, \S and \b are ASCII-only, and a no-break space would not end an address.
+    private static final int FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS;
     // An address typed in text: with a scheme or starting with www., up to white space or a character that cannot
     // be part of one. Gramps' note editor also takes www. without a scheme (gui/widgets/styledtexteditor.py).
     // Email addresses in text are not linked: they often belong to living researchers.
-    private static final Pattern TYPED = Pattern.compile("(?i)\\b(?:https?://|www\\.)[^\\s<>\"]+");
-    private static final Pattern WEB = Pattern.compile("(?i)https?://\\S+");
-    private static final Pattern WWW = Pattern.compile("(?i)www\\.\\S+");
-    // Characters that end a sentence rather than an address, e.g. "see www.example.org."
-    private static final String TRAILING = ".,;:!?'\"*";
+    private static final Pattern TYPED = Pattern.compile("\\b(?:https?://|www\\.)[^\\s<>\"\\p{Cntrl}]+", FLAGS);
+    // Checked by hand rather than with java.net.URI, which rejects what browsers open: hosts in other scripts
+    // (příklad.cz), and |, [ ], { }, ^ or a stray % in the path, all common on archive viewers. No user name
+    // before the host, so that the site shown is the one the link opens.
+    private static final Pattern WEB = Pattern.compile(
+            "https?://(?<host>[\\p{L}\\p{N}\\p{M}-]+(?:\\.[\\p{L}\\p{N}\\p{M}-]+)*|\\[[0-9a-f:.]+])(?::[0-9]{1,5})?"
+                    + "(?:[/?#][^\\s\\p{Cntrl}]*)?",
+            FLAGS);
+    private static final Pattern WWW = Pattern.compile("www\\.\\S+", FLAGS);
+    // Characters that end a sentence rather than an address, e.g. "see www.example.org."; quotes are found by
+    // their Unicode type, so that „www.archiv.cz“ and «www.archiv.cz» lose them too.
+    private static final String TRAILING = ".,;:!?'\"*…。、，；：！？";
+    // Closing brackets kept at the end of an address when it opens them, as in Great_Falls_(Montana).
+    private static final String BRACKETS = "()[]{}（）［］｛｝";
 
     private WebLinks() {}
 
     /** An address typed in a text, at UTF-16 offsets {@code [start, end)}, and the URL to link to. */
     record Found(int start, int end, String url) {}
 
-    /** The URL to link to for an address entered in Gramps, or {@code null} if it is not one to link to. */
+    /**
+     * The URL to link to for an address entered on Gramps' Internet tab, a web or plain email address, or
+     * {@code null} if it is not one to link to.
+     */
     static String url(String address) {
-        if (address == null) {
-            return null;
+        String web = web(address);
+        if (web != null || address == null) {
+            return web;
         }
         String text = address.strip();
-        if (WEB.matcher(text).matches()) {
-            return hasHost(text) ? text : null;
-        }
-        if (WWW.matcher(text).matches()) {
-            return hasHost("https://" + text) ? "https://" + text : null;
-        }
         if (text.regionMatches(true, 0, "mailto:", 0, 7)) {
             return Site.mailto(text.substring(7));
         }
         return Site.mailto(text);
     }
 
-    private static boolean hasHost(String url) {
-        try {
-            String host = new URI(url).getHost();
-            return host != null && !host.isEmpty();
-        } catch (URISyntaxException e) {
-            return false;
+    /** The URL to link to for a web address, with www. opening as https, or {@code null} if it is not one. */
+    static String web(String address) {
+        if (address == null) {
+            return null;
         }
+        String text = address.strip();
+        if (WWW.matcher(text).matches()) {
+            text = "https://" + text;
+        }
+        return WEB.matcher(text).matches() ? text : null;
     }
 
     /** The addresses typed in a text that can be linked to. */
@@ -66,7 +76,7 @@ final class WebLinks {
         Matcher matcher = TYPED.matcher(text);
         while (matcher.find()) {
             int end = trim(text, matcher.start(), matcher.end());
-            String url = url(text.substring(matcher.start(), end));
+            String url = web(text.substring(matcher.start(), end));
             if (url != null) {
                 found.add(new Found(matcher.start(), end, url));
             }
@@ -78,13 +88,19 @@ final class WebLinks {
     private static int trim(String text, int start, int end) {
         while (end > start) {
             char last = text.charAt(end - 1);
-            if (TRAILING.indexOf(last) >= 0) {
-                end--;
-            } else if ((last == ')' || last == ']') && unbalanced(text, start, end, last == ')' ? '(' : '[', last)) {
-                end--;
-            } else {
+            int type = Character.getType(last);
+            int bracket = BRACKETS.indexOf(last);
+            boolean trailing = TRAILING.indexOf(last) >= 0
+                    || type == Character.INITIAL_QUOTE_PUNCTUATION
+                    || type == Character.FINAL_QUOTE_PUNCTUATION
+                    // Opening brackets, and low quotes such as „, which Unicode counts as opening ones.
+                    || type == Character.START_PUNCTUATION
+                    || (type == Character.END_PUNCTUATION
+                            && (bracket < 0 || unbalanced(text, start, end, BRACKETS.charAt(bracket - 1), last)));
+            if (!trailing) {
                 break;
             }
+            end--;
         }
         return end;
     }
@@ -103,7 +119,7 @@ final class WebLinks {
 
     /**
      * An address as it is read, without the scheme, "www." and a final slash, and cut after {@link #SHORT}
-     * characters: "familysearch.org/ark:/61903/1:1:M…".
+     * characters: "familysearch.org/ark:/61903/1:1:…".
      */
     static String shorten(String url) {
         String text = url.replaceFirst("(?i)^(https?://|mailto:)", "").replaceFirst("(?i)^www\\.", "");
@@ -121,11 +137,11 @@ final class WebLinks {
         if (url.regionMatches(true, 0, "mailto:", 0, 7)) {
             return url.substring(7);
         }
-        try {
-            String host = new URI(url).getHost().toLowerCase(Locale.ROOT);
-            return host.startsWith("www.") ? host.substring(4) : host;
-        } catch (URISyntaxException e) {
+        Matcher matcher = WEB.matcher(url);
+        if (!matcher.matches()) {
             return shorten(url);
         }
+        String host = matcher.group("host").toLowerCase(Locale.ROOT);
+        return host.startsWith("www.") ? host.substring(4) : host;
     }
 }

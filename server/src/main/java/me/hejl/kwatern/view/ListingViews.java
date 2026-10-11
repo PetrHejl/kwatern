@@ -90,9 +90,7 @@ final class ListingViews extends ViewPart {
     public SourcePage source(Source source) {
         List<Row> details = new ArrayList<>();
         addRow(details, "source.author", source.author());
-        if (source.pubInfo() != null && !source.pubInfo().isBlank()) {
-            details.add(new Row(ui.t("source.pubinfo"), text(source.pubInfo())));
-        }
+        addRow(details, "source.pubinfo", text(source.pubInfo()));
         addRow(details, "source.abbreviation", source.abbreviation());
         details.addAll(attributes(source.attributes()));
         List<RepositoryView> repositories = new ArrayList<>();

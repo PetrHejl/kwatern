@@ -156,7 +156,7 @@ direction with these building blocks:
   still links, to a page that shows only their place in the family.
 - **Theme:** light and dark palettes; `--theme=auto` (default) follows each visitor's system setting,
   `--theme=light` or `dark` forces one. The dark variant is on the design canvas for review.
-- **Type scale** (2026-09-28): every text size is one of eight tokens in `style.css`, chosen by role, in `rem`
+- **Type scale** (2026-09-28): every text size is one of nine tokens in `style.css`, chosen by role, in `rem`
   so that a larger font set in the browser enlarges the site too. An audit had found 15 different sizes for
   the same few roles (secondary text at 15, 16 and 17 px on different pages).
 
@@ -164,6 +164,7 @@ direction with these building blocks:
   |---|---|---|
   | `--text-badge` | 12 px | initials in small circles |
   | `--text-xs` | 14 px | uppercase labels, chart axes, number badges, map pins |
+  | `--text-script` | 14 px | superscript and subscript in notes |
   | `--text-sm` | 16 px | secondary text: sub-lines, captions, chips, notes, family boxes, chart labels |
   | `--text-base` | 18 px | body text, header navigation, tabs |
   | `--text-md` | 20 px | summary lines, brand, letter index, small headings |
@@ -227,15 +228,19 @@ direction with these building blocks:
   people and places is a "Links" card in the sidebar, each link with its description and site, or the shortened
   address without one; a repository's links are under it on the source page. Links to other websites end in
   an arrow (`a.external`). Only http and https addresses and plain email addresses are linked (`WebLinks`):
-  an export may come from someone else, so `javascript:`, `file:` and Gramps' `relative://` stay text.
+  an export may come from someone else, so `javascript:`, `file:` and Gramps' `relative://` are left out of the
+  card. Addresses are checked by a pattern rather than `java.net.URI`, which rejects hosts in other scripts and
+  characters such as `|` or `[ ]` that browsers open.
   - Notes show Gramps' link style and bold, italic, underline, strikethrough, superscript and subscript; font,
     size, colour and highlight are left out, as the site keeps its own type and colours in both themes. A link
     to an object goes to its page, or is plain text when the view does not publish it; links to living people
     are plain text too, as their names are not published.
   - Addresses typed in notes, attribute values, citation pages and source publication info are linked, without
     the punctuation after them, and shortened to 32 characters, except in preformatted notes, whose columns
-    would move. Email addresses typed in text are not linked: they often belong to living researchers. Names,
-    titles and descriptions never link, since an address there is a mistake.
+    would move. Email addresses in text are not linked, typed or in the link style: they often belong to living
+    researchers. A typed address ends at any white space, including a no-break space, and loses the quotes and
+    brackets of any script after it (`„www.archiv.cz“`). Names, titles and descriptions never link, since an
+    address there is a mistake.
   - Gramps counts style offsets in code points, as Python does, and writes handles in links without the
     leading `_` of the XML export.
 - **No JavaScript:** opening sources and "Show more" use HTML `<details>`.

@@ -28,7 +28,7 @@
                     </div>
                     @endif
                     <div>
-                    <div class="t-when">@if(!c.page().isEmpty())@template.part.text(text = c.page()) · @endif${ui.join(c.date(), ui.t("source.confidence", c.confidence()))}</div>
+                    <div class="t-when">@if(!c.page().isEmpty())@template.part.text(text = c.page())${ui.separator()}@endif${ui.join(c.date(), ui.t("source.confidence", c.confidence()))}</div>
                     <ul>
                     @for(var w : c.cited())
                         <li>@if(!w.url().isEmpty())<a href="${w.url()}">${w.label()}</a>@else${w.label()}@endif</li>

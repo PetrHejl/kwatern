@@ -778,9 +778,9 @@ class WebServerTest {
 
     @Test
     void linksWebAddressesAndObjectsInText() throws Exception {
-        // A note with Gramps links to a person, a living person, a missing person, a citation, a web page and a
-        // script, typed addresses, and bold text after an emoji, which Gramps counts as one character.
-        String note = "😀 Son Jesse, grandson Tom, cousin Ann, see Census. Read at Example, not click."
+        // A note with Gramps links to a person, a living person, a missing person, a citation, a web page, a script
+        // and an email address, typed addresses, and bold text after an emoji, which Gramps counts as one character.
+        String note = "😀 Son Jesse, grandson Tom, cousin Ann, see Census. Read at Example, not click or mail."
                 + " (see www.example.org/a). Entry: https://www.familysearch.org/ark:/61903/1:1:M8QX-ABCD?lang=en";
         String styles = Stream.of(
                         new String[] {"link", "gramps://Person/handle/i1", "Jesse"},
@@ -789,6 +789,7 @@ class WebServerTest {
                         new String[] {"link", "gramps://Citation/handle/c0", "Census"},
                         new String[] {"link", "https://example.org/read", "Example"},
                         new String[] {"link", "javascript:alert(1)", "click"},
+                        new String[] {"link", "mailto:researcher@example.org", "mail"},
                         new String[] {"bold", null, "Son"})
                 .map(s -> "<style name=\"%s\"%s><range start=\"%d\" end=\"%d\"/></style>"
                         .formatted(
@@ -814,6 +815,7 @@ class WebServerTest {
                       <url href="https://www.familysearch.org/tree/person/X" type="Web Home"
                         description="FamilySearch tree"/>
                       <url href="www.example.org/garner" type="Web Home"/>
+                      <url href="https://příklad.cz/fond?id=[12]|a" type="Web Home" description="Archive"/>
                       <url href="javascript:alert(1)" type="Web Home" description="Script"/>
                       <noteref hlink="_n0"/><citationref hlink="_c0"/></person>
                     <person handle="_i1" change="1" id="I1"><gender>M</gender>
@@ -850,14 +852,14 @@ class WebServerTest {
                             + " <a href=\"/person/I1\">Jesse</a>, grandson Tom, cousin Ann,"
                             + " see <a href=\"/source/S0\">Census</a>. Read at "
                             + external.formatted("https://example.org/read", "Example")
-                            + ", not click. (see "
+                            + ", not click or mail. (see "
                             + external.formatted("https://www.example.org/a", "example.org/a")
                             + "). Entry: "
                             + external.formatted(
                                     "https://www.familysearch.org/ark:/61903/1:1:M8QX-ABCD?lang=en",
                                     "familysearch.org/ark:/61903/1:1:…")
                             + "</div>"),
-                    "links to published objects and web pages, the living and scripts as text");
+                    "links to published objects and web pages, the living, scripts and email addresses as text");
             assertTrue(
                     page.contains("<dd>"
                             + external.formatted("https://www.findagrave.com/memorial/1", "findagrave.com/memorial/1")
@@ -872,10 +874,16 @@ class WebServerTest {
                             + "<span class=\"muted\">familysearch.org</span>"),
                     "web links with a description");
             assertTrue(
-                    page.contains(
-                            "href=\"https://www.example.org/garner\" rel=\"noreferrer\"><span"
-                                    + " class=\"web-link-text\"><span class=\"web-link-label\">example.org/garner</span></span>"),
+                    page.contains("href=\"https://www.example.org/garner\" rel=\"noreferrer\"><span"
+                            + " class=\"web-link-text\"><span class=\"web-link-label\">example.org/garner</span>"
+                            + "</span>"),
                     "and without one");
+            assertTrue(
+                    page.contains("href=\"https://příklad.cz/fond?id=[12]|a\" rel=\"noreferrer\"><span"
+                            + " class=\"web-link-text\"><span class=\"web-link-label\">Archive</span>"
+                            + "<span class=\"muted\">příklad.cz</span>"),
+                    "an address that java.net.URI would reject");
+            assertFalse(page.contains("mailto:"), "no email address from a note");
             assertFalse(page.contains("javascript:"), "never a script");
         } finally {
             tree.stop();

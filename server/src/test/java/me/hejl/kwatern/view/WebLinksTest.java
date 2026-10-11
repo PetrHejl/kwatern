@@ -23,7 +23,25 @@ class WebLinksTest {
         assertNull(WebLinks.url("https://"));
         assertNull(WebLinks.url("https://exa mple.org"));
         assertNull(WebLinks.url("example.org"));
+        assertNull(WebLinks.url("https://user@example.org"));
+        assertNull(WebLinks.url("https://example.org/\u0000"));
         assertNull(WebLinks.url(null));
+    }
+
+    @Test
+    void linksWhatBrowsersOpen() {
+        assertEquals("https://příklad.cz/", WebLinks.url("https://příklad.cz/"));
+        assertEquals(
+                "https://a.example.org/q?x=[1]|2&y={3}^%", WebLinks.url("https://a.example.org/q?x=[1]|2&y={3}^%"));
+        assertEquals("http://[::1]:8080/a", WebLinks.url("http://[::1]:8080/a"));
+        assertEquals("příklad.cz", WebLinks.site("https://www.Příklad.cz/a"));
+    }
+
+    @Test
+    void linksOnlyWebAddressesInText() {
+        assertEquals("https://example.org", WebLinks.web("https://example.org"));
+        assertNull(WebLinks.web("archive@example.org"));
+        assertNull(WebLinks.web("mailto:archive@example.org"));
     }
 
     @Test
@@ -36,6 +54,17 @@ class WebLinksTest {
                 WebLinks.find("(see http://example.org/a)."));
         String wiki = "https://en.wikipedia.org/wiki/Great_Falls_(Montana)";
         assertEquals(found("at " + wiki + ", ", wiki, wiki), WebLinks.find("at " + wiki + ", "));
+        assertEquals(
+                found("„https://archiv.cz/fond/12“ a", "https://archiv.cz/fond/12", "https://archiv.cz/fond/12"),
+                WebLinks.find("„https://archiv.cz/fond/12“ a"));
+        assertEquals(
+                found("„www.archiv.cz“.", "www.archiv.cz", "https://www.archiv.cz"), WebLinks.find("„www.archiv.cz“."));
+        assertEquals(found("«www.a.cz»", "www.a.cz", "https://www.a.cz"), WebLinks.find("«www.a.cz»"));
+        assertEquals(found("‘www.a.cz’", "www.a.cz", "https://www.a.cz"), WebLinks.find("‘www.a.cz’"));
+        assertEquals(found("（www.a.cz）", "www.a.cz", "https://www.a.cz"), WebLinks.find("（www.a.cz）"));
+        assertEquals(
+                found("https://example.org/a\u00A0(1890)", "https://example.org/a", "https://example.org/a"),
+                WebLinks.find("https://example.org/a\u00A0(1890)"));
         assertEquals(List.of(), WebLinks.find("no address, archive@example.org, xwww.example.org"));
         assertEquals(
                 2, WebLinks.find("https://a.example.org https://b.example.org").size());

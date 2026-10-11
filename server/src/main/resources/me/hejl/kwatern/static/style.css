@@ -61,6 +61,7 @@
     /* Text sizes, in rem so that they follow the size a visitor sets in the browser (16 px unless changed). */
     --text-badge: 0.75rem; /* 12 px: initials in small circles */
     --text-xs: 0.875rem;   /* 14 px: uppercase labels, chart axes, number badges */
+    --text-script: 0.875rem; /* 14 px: superscript and subscript in notes */
     --text-sm: 1rem;       /* 16 px: secondary text, captions, chips, boxes, chart labels */
     --text-base: 1.125rem; /* 18 px: body text, navigation, tabs */
     --text-md: 1.25rem;    /* 20 px: summary lines, brand, small headings */
@@ -444,7 +445,7 @@ dl.rows dd { margin: 0; }
 .st-underline { text-decoration: underline; }
 .st-strikethrough { text-decoration: line-through; }
 .st-strikethrough.st-underline { text-decoration: underline line-through; }
-.st-subscript, .st-superscript { font-size: var(--text-xs); line-height: 0; }
+.st-subscript, .st-superscript { font-size: var(--text-script); line-height: 0; }
 .st-subscript { vertical-align: sub; }
 .st-superscript { vertical-align: super; }
 

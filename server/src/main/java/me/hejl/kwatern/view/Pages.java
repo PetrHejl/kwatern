@@ -53,6 +53,13 @@ public final class Pages {
         public boolean isEmpty() {
             return runs.isEmpty();
         }
+
+        /** Whether the text has nothing but white space. */
+        public boolean isBlank() {
+            return runs.stream()
+                    .flatMap(r -> r.pieces().stream())
+                    .allMatch(p -> p.text().isBlank());
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import me.hejl.gramps.date.DateMath;
 import me.hejl.gramps.model.Attribute;
@@ -205,6 +206,13 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
 
     void addRow(List<Row> rows, String key, String value) {
         if (value != null && !value.isBlank()) {
+            rows.add(new Row(ui.t(key), value));
+        }
+    }
+
+    /** A row whose value links the web addresses typed in it. */
+    void addRow(List<Row> rows, String key, Text value) {
+        if (!value.isBlank()) {
             rows.add(new Row(ui.t(key), value));
         }
     }
@@ -441,20 +449,23 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
      */
     Text text(StyledText styled, boolean preformatted) {
         String text = styled.text();
+        int[] offsets = offsets(text);
         List<LinkSpan> links = new ArrayList<>();
         List<Mark> marks = new ArrayList<>();
         List<Mark> linkStyled = new ArrayList<>();
         for (StyledText.Style style : styled.styles()) {
             for (StyledText.Range range : style.ranges()) {
-                int start = offset(text, range.start());
-                int end = offset(text, range.end());
+                // Clamped to the text: an export may come from someone else.
+                int start = offsets[Math.clamp(range.start(), 0, offsets.length - 1)];
+                int end = offsets[Math.clamp(range.end(), 0, offsets.length - 1)];
                 if (start >= end) {
                     continue;
                 }
                 if ("link".equals(style.name())) {
                     linkStyled.add(new Mark(start, end, ""));
                     String internal = target(style.value());
-                    String external = internal == null ? WebLinks.url(style.value()) : null;
+                    // Only web addresses: email addresses in notes often belong to living researchers.
+                    String external = internal == null ? WebLinks.web(style.value()) : null;
                     if (internal != null && !internal.isEmpty()) {
                         links.add(new LinkSpan(start, end, internal, false, null));
                     } else if (external != null) {
@@ -465,8 +476,18 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
                 }
             }
         }
+        // A typed address inside the link style is left to that link. Both lists go by start, so the link styles
+        // starting before an address ends are counted once: it overlaps one when the furthest of them ends after
+        // the address starts.
+        linkStyled.sort(Comparator.comparingInt(Mark::start));
+        int styledIndex = 0;
+        int styledEnd = -1;
         for (WebLinks.Found found : WebLinks.find(text)) {
-            if (linkStyled.stream().noneMatch(m -> m.start() < found.end() && found.start() < m.end())) {
+            while (styledIndex < linkStyled.size()
+                    && linkStyled.get(styledIndex).start() < found.end()) {
+                styledEnd = Math.max(styledEnd, linkStyled.get(styledIndex++).end());
+            }
+            if (styledEnd <= found.start()) {
                 String typed = text.substring(found.start(), found.end());
                 links.add(new LinkSpan(
                         found.start(), found.end(), found.url(), true, preformatted ? typed : WebLinks.shorten(typed)));
@@ -490,16 +511,31 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
             cuts.add(m.start());
             cuts.add(m.end());
         });
+        // The pieces between cuts, walking the links and the starts and ends of styles along with them.
+        List<Mark> byStart =
+                marks.stream().sorted(Comparator.comparingInt(Mark::start)).toList();
+        List<Mark> byEnd =
+                marks.stream().sorted(Comparator.comparingInt(Mark::end)).toList();
+        Map<String, Integer> active = new TreeMap<>();
+        int linkIndex = 0;
+        int startIndex = 0;
+        int endIndex = 0;
         List<Run> runs = new ArrayList<>();
         List<Piece> pieces = new ArrayList<>();
         LinkSpan current = null;
         Integer start = cuts.first();
         for (Integer end = cuts.higher(start); end != null; start = end, end = cuts.higher(end)) {
             int from = start;
-            LinkSpan link = kept.stream()
-                    .filter(l -> l.start() <= from && from < l.end())
-                    .findFirst()
-                    .orElse(null);
+            while (linkIndex < kept.size() && kept.get(linkIndex).end() <= from) {
+                linkIndex++;
+            }
+            LinkSpan link = linkIndex < kept.size() && kept.get(linkIndex).start() <= from ? kept.get(linkIndex) : null;
+            while (startIndex < byStart.size() && byStart.get(startIndex).start() <= from) {
+                active.merge(byStart.get(startIndex++).style(), 1, Integer::sum);
+            }
+            while (endIndex < byEnd.size() && byEnd.get(endIndex).end() <= from) {
+                active.merge(byEnd.get(endIndex++).style(), -1, (a, b) -> a + b == 0 ? null : a + b);
+            }
             if (link != current) {
                 if (!pieces.isEmpty()) {
                     runs.add(run(current, pieces));
@@ -507,14 +543,7 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
                 pieces = new ArrayList<>();
                 current = link;
             }
-            String style = String.join(
-                    " ",
-                    marks.stream()
-                            .filter(m -> m.start() <= from && from < m.end())
-                            .map(Mark::style)
-                            .distinct()
-                            .sorted()
-                            .toList());
+            String style = String.join(" ", active.keySet());
             if (link != null && link.label() != null) {
                 // A shortened address is one piece in the style of its start.
                 if (pieces.isEmpty()) {
@@ -534,13 +563,15 @@ abstract sealed class ViewPart permits ListingViews, PersonViews, ChartViews, Pl
         return new Run(link == null ? "" : link.url(), link != null && link.external(), List.copyOf(pieces));
     }
 
-    /**
-     * The UTF-16 offset of a Gramps offset, which counts code points as Python strings do, clamped to the text: an
-     * export may come from someone else.
-     */
-    private static int offset(String text, int codePoints) {
-        int count = text.codePointCount(0, text.length());
-        return text.offsetByCodePoints(0, Math.clamp(codePoints, 0, count));
+    /** The UTF-16 offset of each Gramps offset, which counts code points as Python strings do, and of the end. */
+    private static int[] offsets(String text) {
+        int[] offsets = new int[text.codePointCount(0, text.length()) + 1];
+        for (int i = 0, offset = 0; i < offsets.length - 1; i++) {
+            offsets[i] = offset;
+            offset += Character.charCount(text.codePointAt(offset));
+        }
+        offsets[offsets.length - 1] = text.length();
+        return offsets;
     }
 
     /**
