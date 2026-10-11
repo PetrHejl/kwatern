@@ -72,6 +72,7 @@ final class PersonViews extends ViewPart {
                         .map(n -> new Row(ui.type("name", n.type()), ui.names().display(n)))
                         .toList(),
                 attributes(person.attributes()),
+                webLinks(person.urls()),
                 notes(person.notes()),
                 sources.uses(),
                 living ? List.of() : personMedia(person));

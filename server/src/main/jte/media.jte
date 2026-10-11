@@ -62,7 +62,7 @@
             <h2>${ui.t("media.details")}</h2>
             <dl class="rows">
             @for(var d : page.details())
-                <dt>${d.label()}</dt><dd>${d.value()}</dd>
+                <dt>${d.label()}</dt><dd>@template.part.text(text = d.value())</dd>
             @endfor
             </dl>
         </section>

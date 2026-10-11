@@ -19,6 +19,7 @@ import me.hejl.kwatern.view.Pages.Cited;
 import me.hejl.kwatern.view.Pages.HomePage;
 import me.hejl.kwatern.view.Pages.Letter;
 import me.hejl.kwatern.view.Pages.PlaceLink;
+import me.hejl.kwatern.view.Pages.RepositoryView;
 import me.hejl.kwatern.view.Pages.Row;
 import me.hejl.kwatern.view.Pages.SearchPage;
 import me.hejl.kwatern.view.Pages.SourceEntry;
@@ -89,24 +90,25 @@ final class ListingViews extends ViewPart {
     public SourcePage source(Source source) {
         List<Row> details = new ArrayList<>();
         addRow(details, "source.author", source.author());
-        addRow(details, "source.pubinfo", source.pubInfo());
+        addRow(details, "source.pubinfo", text(source.pubInfo()));
         addRow(details, "source.abbreviation", source.abbreviation());
         details.addAll(attributes(source.attributes()));
-        List<Row> repositories = new ArrayList<>();
+        List<RepositoryView> repositories = new ArrayList<>();
         for (RepoRef ref : source.repositories()) {
             db.repositories()
                     .get(ref.repository())
-                    .ifPresent(r -> repositories.add(new Row(
+                    .ifPresent(r -> repositories.add(new RepositoryView(
                             r.name() == null ? ui.t("unknown") : r.name(),
                             ui.join(
                                     ref.callNumber() == null ? "" : ui.t("source.call_number", ref.callNumber()),
-                                    ui.type("medium", ref.medium())))));
+                                    ui.type("medium", ref.medium())),
+                            webLinks(r.urls()))));
         }
         List<CitationEntry> citations = db.referrers(source.handle()).stream()
                 .filter(Citation.class::isInstance)
                 .map(Citation.class::cast)
                 .map(c -> new CitationEntry(
-                        c.page() == null ? "" : c.page(),
+                        text(c.page()),
                         ui.date(c.date()),
                         ui.t("confidence." + Math.clamp(c.confidence(), 0, 4)),
                         cited(c),

@@ -12,7 +12,7 @@
     <h2>${ui.t("attributes")}</h2>
     <dl class="rows">
     @for(var a : attributes)
-        <dt>${a.label()}</dt><dd>${a.value()}</dd>
+        <dt>${a.label()}</dt><dd>@template.part.text(text = a.value())</dd>
     @endfor
     </dl>
 </section>
@@ -21,7 +21,7 @@
 <section class="card">
     <h2>${ui.t("notes")}</h2>
     @for(var n : notes)
-        <div class="${n.preformatted() ? "note preformatted" : "note"}">${n.text()}</div>
+        <div class="${n.preformatted() ? "note preformatted" : "note"}">@template.part.text(text = n.text())</div>
     @endfor
 </section>
 @endif
@@ -30,7 +30,7 @@
     <h2>${ui.t("sources.all")}</h2>
     <ul class="source-list">
     @for(var s : sources)
-        <li>@if(!s.url().isEmpty())<a href="${s.url()}">${s.source()}</a>@else${s.source()}@endif@if(!s.page().isEmpty()), ${s.page()}@endif<span class="muted">${ui.separator()}${s.supports()}</span></li>
+        <li>@if(!s.url().isEmpty())<a href="${s.url()}">${s.source()}</a>@else${s.source()}@endif@if(!s.page().isEmpty()), @template.part.text(text = s.page())@endif<span class="muted">${ui.separator()}${s.supports()}</span></li>
     @endfor
     </ul>
 </section>

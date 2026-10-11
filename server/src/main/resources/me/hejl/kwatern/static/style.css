@@ -61,6 +61,7 @@
     /* Text sizes, in rem so that they follow the size a visitor sets in the browser (16 px unless changed). */
     --text-badge: 0.75rem; /* 12 px: initials in small circles */
     --text-xs: 0.875rem;   /* 14 px: uppercase labels, chart axes, number badges */
+    --text-script: 0.875rem; /* 14 px: superscript and subscript in notes */
     --text-sm: 1rem;       /* 16 px: secondary text, captions, chips, boxes, chart labels */
     --text-base: 1.125rem; /* 18 px: body text, navigation, tabs */
     --text-md: 1.25rem;    /* 20 px: summary lines, brand, small headings */
@@ -191,6 +192,17 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: var(--text-base
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
+/* Links to other websites end in an arrow in the link colour. Long addresses may break anywhere. */
+a.external { overflow-wrap: anywhere; }
+a.external::after {
+    content: "";
+    display: inline-block;
+    width: 0.75em;
+    height: 0.75em;
+    margin-left: var(--space-1);
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6.5 3.5H12.5V9.5M12.5 3.5L4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 
 h1, h2 { font-family: var(--display); }
 
@@ -427,6 +439,26 @@ dl.rows dt { color: var(--muted); }
 dl.rows dd { margin: 0; }
 .note { white-space: pre-line; margin: 0 0 var(--space-3); }
 .note.preformatted { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: var(--text-sm); }
+/* Text styles of notes as Gramps shows them; see ViewPart.STYLES. */
+.st-bold { font-weight: 700; }
+.st-italic { font-style: italic; }
+.st-underline { text-decoration: underline; }
+.st-strikethrough { text-decoration: line-through; }
+.st-strikethrough.st-underline { text-decoration: underline line-through; }
+.st-subscript, .st-superscript { font-size: var(--text-script); line-height: 0; }
+.st-subscript { vertical-align: sub; }
+.st-superscript { vertical-align: super; }
+
+ul.web-links { margin: 0; padding: 0; list-style: none; }
+ul.web-links li + li { border-top: 1px solid var(--line-soft); }
+ul.web-links a { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: var(--space-2) 0; }
+ul.web-links a:hover { text-decoration: none; }
+ul.web-links a::after { margin-left: auto; flex-shrink: 0; }
+.web-link-text { display: flex; flex-direction: column; min-width: 0; }
+.web-link-label { font-weight: 600; }
+a:hover .web-link-label { text-decoration: underline; }
+.web-link-text .muted { font-size: var(--text-sm); }
+ul.repository-links { margin: var(--space-1) 0 0; padding: 0; list-style: none; }
 
 dl.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0 0 var(--space-4); }
 dl.stats dt { color: var(--muted); font-size: var(--text-sm); }
