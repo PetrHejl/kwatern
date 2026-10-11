@@ -96,11 +96,12 @@
             <h2>${ui.t("place.names")}</h2>
             <dl class="rows">
             @for(var n : page.otherNames())
-                <dt>${n.label()}</dt><dd>${n.value()}</dd>
+                <dt>${n.label()}</dt><dd>@template.part.text(text = n.value())</dd>
             @endfor
             </dl>
         </section>
         @endif
+        @template.part.weblinks(ui = ui, links = page.links())
     </aside>
 </div>
 `)

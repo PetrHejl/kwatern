@@ -24,6 +24,7 @@ public final class Ui {
 
     // Characters of a Gramps type that message keys have as "_"; used for every type on every page.
     private static final Pattern NOT_IN_KEYS = Pattern.compile("[^a-z0-9]+");
+    private static final String SEPARATOR = " · ";
 
     private final Locale locale;
     private final Messages messages;
@@ -134,10 +135,15 @@ public final class Ui {
         return Arrays.stream(parts).filter(p -> p != null && !p.isEmpty()).toList();
     }
 
-    /** Joins the non-empty parts with " · ", for compact lines such as "Wife · 1852–1921". */
+    /** The separator of parts in compact lines, for a part that templates write themselves, such as a link. */
+    public String separator() {
+        return SEPARATOR;
+    }
+
+    /** Joins the non-empty parts with {@link #separator()}, for compact lines such as "Wife · 1852–1921". */
     public String join(String... parts) {
         return String.join(
-                " · ",
+                SEPARATOR,
                 Arrays.stream(parts).filter(p -> p != null && !p.isEmpty()).toList());
     }
 

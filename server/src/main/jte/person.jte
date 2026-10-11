@@ -73,6 +73,7 @@
             </div>
         </section>
         @endif
+        @template.part.weblinks(ui = ui, links = page.links())
     </aside>
 </div>
 `)

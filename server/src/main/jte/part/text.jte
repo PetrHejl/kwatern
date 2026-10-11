@@ -1,0 +1,3 @@
+@import me.hejl.kwatern.view.Pages.Text
+@param Text text
+<%-- On one line: notes keep their white space, so the template must add none. --%>@for(var r : text.runs())@if(r.url().isEmpty())@template.part.pieces(pieces = r.pieces())@elseif(r.external())<a class="external" href="${r.url()}" rel="noreferrer">@template.part.pieces(pieces = r.pieces())</a>@else<a href="${r.url()}">@template.part.pieces(pieces = r.pieces())</a>@endif@endfor
